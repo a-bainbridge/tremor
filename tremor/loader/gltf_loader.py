@@ -27,9 +27,10 @@ def glb_object(filepath) -> pygltflib.GLTF2:
 
 
 class DecoratedAccessor:
-    def __init__(self, buffer_settings: BufferSettings, buffer_view: bytearray):
+    def __init__(self, buffer_settings: BufferSettings, buffer_view: bytearray, count:int=0):
         self.settings:BufferSettings = buffer_settings
         self.buffer:bytearray = buffer_view
+        self.count = count
 
 
 def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement]:
@@ -73,12 +74,13 @@ def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement
         )
         d_accessors.append(
             DecoratedAccessor(
-                buffer_view=np.frombuffer(buff, dtype=),
+                buffer_view=buff,
                 buffer_settings=BufferSettings(
                     size=vec,
-                    # data_type=acc.componentType,
+                    data_type=acc.componentType,
                     stride=stride
-                )
+                ),
+                count=count
             )
         )
 
@@ -131,7 +133,9 @@ def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement
                 normals = accessors[attr.NORMAL]  # normals are per-vertex
                 mesh = Mesh(elem, program)
                 face_index = prim.indices
-                if face_index is not None and False:
+                if face_index is not None:
+                    elements = d_accessors[face_index]
+                    mesh.bind_elements_vbo(elements.buffer, elements.count)
                     l = len(accessors[face_index])
                     raw_faces = accessors[face_index].reshape((int(l / 3), 3))
                     positions = np.asarray(obj_loader.get_vertices_from_faces(positions, raw_faces), dtype='float32')

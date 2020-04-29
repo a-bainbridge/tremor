@@ -100,6 +100,8 @@ class Mesh:
 
         self.has_uvs = False
         self.parent = parent_element
+        self.elemented:bool = False
+        self.faces:int = 0
 
     def set_material(self, material: 'Material') -> None:
         self.material = material
@@ -114,6 +116,13 @@ class Mesh:
 
     def set_texture(self, tex: Texture):
         self.material.set_texture(tex, MaterialTexture.COLOR)
+
+    def bind_elements_vbo (self, data, length):
+        vbo_id = GL.glGenBuffers(1)
+        GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, vbo_id)
+        GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, data, GL.GL_STATIC_DRAW)
+        self.elemented = True
+        self.faces = int(length / 3)
 
     def bind_float_attribute_vbo(self, data, attribute_name: str, static: bool,
                                  buffer_settings: BufferSettings=BufferSettings()):  # must be 4 byte floats
@@ -146,7 +155,10 @@ class Mesh:
                 self.material.get_texture(MaterialTexture.COLOR).index
             )
         self.attributes.bind_all()
-        GL.glDrawArrays(GL.GL_TRIANGLES, 0, self.vertex_count)
+        if self.elemented:
+            GL.glDrawArrays(GL.GL_TRIANGLES, 0, self.vertex_count)
+        else:
+            GL.glDrawElements(GL.GL_TRIANGLES, self.faces, GL.GL_UNSIGNED_BYTE, None)
         self.attributes.unbind_all()
         for a in self.attributes.attributes:
             GL.glDisableVertexAttribArray(a.location)
