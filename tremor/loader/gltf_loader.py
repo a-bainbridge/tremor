@@ -9,7 +9,7 @@ import pygltflib
 from tremor.core.scene_element import SceneElement
 from tremor.graphics import shaders
 from tremor.loader import obj_loader
-from tremor.graphics.element_renderer import ElementRenderer, Material, Mesh
+from tremor.graphics.element_renderer import ElementRenderer, Material, Mesh, BufferSettings
 import numpy as np
 
 from tremor.graphics.uniforms import Texture
@@ -24,6 +24,12 @@ def glb_object(filepath) -> pygltflib.GLTF2:
     except FileNotFoundError:
         raise Exception('The specified file ' + filepath + ' could not be found')
     return GLTF.load_binary(filepath)
+
+
+class DecoratedAccessor: # todo: integrate this into the loader
+    def __init__(self, buffer_settings: BufferSettings, buffer_view: bytearray):
+        self.settings = buffer_settings
+        self.buffer = buffer_view
 
 
 def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement]:
@@ -128,7 +134,8 @@ def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement
                         uvs = accessors[texcoord]
                         flat_uvs = obj_loader.get_vertices_from_faces(uvs, raw_faces).flatten()
                         mesh.has_uvs = True
-                        mesh.bind_float_attribute_vbo(flat_uvs, 'texcoord', True, size=2)
+                        mesh.bind_float_attribute_vbo(flat_uvs, 'texcoord', True,
+                                                      buffer_settings=BufferSettings(size=2))
 
                         if prim.material is not None:
                             mesh.set_material(materials[prim.material])

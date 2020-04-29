@@ -12,12 +12,31 @@ from tremor.graphics.uniforms import Texture
 from tremor.math.transform import Transform
 
 
+class BufferSettings:  # data class
+    def __init__(self, size: int = 3, data_type=GL.GL_FLOAT, stride: int = 0):
+        self.size = size
+        self.data_type = data_type
+        self.stride = stride
+
+
 class Attribute:
-    def __init__(self, location=0, name="none", vbo_id=0, size: int = 3):
+    def __init__(self, location=0, name="none", vbo_id=0, settings: BufferSettings = BufferSettings()):
         self.name = name
         self.location = location
         self.vbo_id = vbo_id
-        self.size = size
+        self.settings = settings
+
+    def bind(self) -> None:
+        GL.glEnableVertexAttribArray(self.location)
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, self.vbo_id)
+        GL.glVertexAttribPointer(self.location, self.settings.size, self.settings.data_type, GL.GL_FALSE,
+                                 self.settings.stride, None)
+
+    def unbind (self):
+        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+
+    def get_size(self) -> int:
+        return self.settings.size
 
 
 class Attributes:
@@ -42,10 +61,18 @@ class Attributes:
                 return True
         return False
 
-    def add_attribute(self, name: str, location, vbo_id: int, size: int):
+    def add_attribute(self, name: str, location, vbo_id: int, settings: BufferSettings):
         if not self.name_in_attributes(name) and not self.location_in_attributes(
                 location) and not self.vbo_id_in_attributes(vbo_id):
-            self.attributes.append(Attribute(name=name, location=location, vbo_id=vbo_id, size=size))
+            self.attributes.append(Attribute(name=name, location=location, vbo_id=vbo_id, settings=settings))
+
+    def bind_all (self) -> None:
+        for a in self.attributes:
+            a.bind()
+
+    def unbind_all (self) -> None:
+        for a in self.attributes:
+            a.unbind()
 
 
 class ElementRenderer:
@@ -88,19 +115,21 @@ class Mesh:
     def set_texture(self, tex: Texture):
         self.material.set_texture(tex, MaterialTexture.COLOR)
 
-    def bind_float_attribute_vbo(self, data, attribute_name: str, static: bool, size: int = 3):  # must be 4 byte floats
+    def bind_float_attribute_vbo(self, data, attribute_name: str, static: bool,
+                                 buffer_settings: BufferSettings=BufferSettings()):  # must be 4 byte floats
         self.bind_vao()
         if attribute_name == 'position':  # aaaaaaaaaaaaaaaaaaaaaa
             self.vertex_count = int(len(data) / 3)
         vbo_id = GL.glGenBuffers(1)
         location = GL.glGetAttribLocation(self.gl_program, attribute_name)
         # print('location is %s for %s'%(location, attribute_name))
-        self.attributes.add_attribute(name=attribute_name, location=location, vbo_id=vbo_id, size=size)
+        self.attributes.add_attribute(name=attribute_name, location=location, vbo_id=vbo_id, settings=buffer_settings)
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo_id)  # bind it
         GL.glBufferData(GL.GL_ARRAY_BUFFER, data,
                         GL.GL_STATIC_DRAW if static else GL.GL_DYNAMIC_DRAW)  # add the data into it
-        GL.glVertexAttribPointer(location, size, GL.GL_FLOAT, GL.GL_FALSE, 0, None)  # tell it how to parse it
-        GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)  # unbind it
+        GL.glVertexAttribPointer(location, buffer_settings.size, GL.GL_FLOAT, GL.GL_FALSE, 0, None)  # tell it how to parse it
+        # self.attributes.attributes[-1].bind()
+        # self.attributes.attributes[-1].unbind()
         self.unbind_vao()
 
     def render(self):
@@ -116,11 +145,9 @@ class Mesh:
                 GL.glGetUniformLocation(self.gl_program, mat_tex.tex_type),
                 self.material.get_texture(MaterialTexture.COLOR).index
             )
-        for a in self.attributes.attributes:
-            GL.glEnableVertexAttribArray(a.location)
-            GL.glBindBuffer(GL.GL_ARRAY_BUFFER, a.vbo_id)
-            GL.glVertexAttribPointer(a.location, a.size, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+        self.attributes.bind_all()
         GL.glDrawArrays(GL.GL_TRIANGLES, 0, self.vertex_count)
+        self.attributes.unbind_all()
         for a in self.attributes.attributes:
             GL.glDisableVertexAttribArray(a.location)
         self.unbind_vao()
