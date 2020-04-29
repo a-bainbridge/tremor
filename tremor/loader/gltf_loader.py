@@ -26,10 +26,10 @@ def glb_object(filepath) -> pygltflib.GLTF2:
     return GLTF.load_binary(filepath)
 
 
-class DecoratedAccessor: # todo: integrate this into the loader
+class DecoratedAccessor:
     def __init__(self, buffer_settings: BufferSettings, buffer_view: bytearray):
-        self.settings = buffer_settings
-        self.buffer = buffer_view
+        self.settings:BufferSettings = buffer_settings
+        self.buffer:bytearray = buffer_view
 
 
 def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement]:
@@ -39,6 +39,7 @@ def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement
     buffer = bytearray(obj._glb_data)
     buffer_views = []
     accessors = []
+    d_accessors:List[DecoratedAccessor] = []
     textures: List[Texture] = []
     materials: List[Material] = []
     for bv in obj.bufferViews:
@@ -70,6 +71,17 @@ def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement
         accessors.append(
             npbuff.reshape((count, vec))  # make it the right dimensions
         )
+        d_accessors.append(
+            DecoratedAccessor(
+                buffer_view=np.frombuffer(buff, dtype=),
+                buffer_settings=BufferSettings(
+                    size=vec,
+                    # data_type=acc.componentType,
+                    stride=stride
+                )
+            )
+        )
+
 
     for t in obj.textures:
         if t.sampler is None:
@@ -119,7 +131,7 @@ def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement
                 normals = accessors[attr.NORMAL]  # normals are per-vertex
                 mesh = Mesh(elem, program)
                 face_index = prim.indices
-                if face_index is not None:
+                if face_index is not None and False:
                     l = len(accessors[face_index])
                     raw_faces = accessors[face_index].reshape((int(l / 3), 3))
                     positions = np.asarray(obj_loader.get_vertices_from_faces(positions, raw_faces), dtype='float32')
@@ -140,8 +152,12 @@ def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement
                         if prim.material is not None:
                             mesh.set_material(materials[prim.material])
 
-                mesh.bind_float_attribute_vbo(positions.flatten(), 'position', True)
-                mesh.bind_float_attribute_vbo(normals.flatten(), 'normal', True)
+                # mesh.bind_float_attribute_vbo(positions.flatten(), 'position', True)
+                # mesh.bind_float_attribute_vbo(normals.flatten(), 'normal', True)
+                data_position = d_accessors[attr.POSITION]
+                data_normal = d_accessors[attr.NORMAL]
+                mesh.bind_float_attribute_vbo(data_position.buffer, 'position', True, buffer_settings=data_position.settings)
+                mesh.bind_float_attribute_vbo(data_normal.buffer, 'normal', True, buffer_settings=data_normal.settings)
 
                 elem.renderer.meshes.append(mesh)
         elem.transform.scale = np.array([1, 1, 1], dtype='float32') * n.scale

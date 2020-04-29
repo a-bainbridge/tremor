@@ -127,7 +127,7 @@ class Mesh:
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo_id)  # bind it
         GL.glBufferData(GL.GL_ARRAY_BUFFER, data,
                         GL.GL_STATIC_DRAW if static else GL.GL_DYNAMIC_DRAW)  # add the data into it
-        GL.glVertexAttribPointer(location, buffer_settings.size, GL.GL_FLOAT, GL.GL_FALSE, 0, None)  # tell it how to parse it
+        GL.glVertexAttribPointer(location, buffer_settings.size, GL.GL_FLOAT, GL.GL_FALSE, buffer_settings.stride, None)  # tell it how to parse it
         # self.attributes.attributes[-1].bind()
         # self.attributes.attributes[-1].unbind()
         self.unbind_vao()
