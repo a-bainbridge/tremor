@@ -36,7 +36,7 @@ class Mesh:
             # mode,count,type,indices
             GL.glDrawElements(GL.GL_TRIANGLES,
                               self.elementInfo.count,
-                              self.elementInfo.componentType,
+                              GL.GL_UNSIGNED_SHORT,
                               None
                               )
         else:

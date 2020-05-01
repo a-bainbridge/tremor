@@ -1,6 +1,8 @@
+import ctypes
 from typing import Dict, List
 
 from OpenGL import GL
+from OpenGL.arrays import ArrayDatatype
 from PIL import Image as PIL_Image
 from io import BytesIO
 
@@ -69,12 +71,13 @@ def load_gltf(filepath) -> Mesh:
     pos_loc = GL.glGetAttribLocation(mesh.gl_program, "position")
     GL.glEnableVertexAttribArray(pos_loc)
     GL.glBindBuffer(GL.GL_ARRAY_BUFFER, bv_tbl[pos_acc.bufferView])
-    GL.glVertexAttribPointer(index=pos_loc,
-                             size=type_to_dim[pos_acc.type],
-                             normalized=pos_acc.normalized,
-                             stride=obj.bufferViews[pos_acc.bufferView].byteStride,
-                             pointer=pos_acc.byteOffset,
-                             type=pos_acc.componentType)
+    GL.glVertexAttribPointer(pos_loc,
+                             type_to_dim[pos_acc.type],
+                             pos_acc.componentType,
+                             pos_acc.normalized,
+                             obj.bufferViews[pos_acc.bufferView].byteStride,
+                             ctypes.c_void_p(pos_acc.byteOffset),
+                             )
 
     mesh.tri_count = pos_acc.count // 3  # assume vec3
     # normals
@@ -84,21 +87,21 @@ def load_gltf(filepath) -> Mesh:
                              size=type_to_dim[norm_acc.type],
                              normalized=norm_acc.normalized,
                              stride=obj.bufferViews[norm_acc.bufferView].byteStride,
-                             pointer=norm_acc.byteOffset,
+                             pointer=ctypes.c_void_p(norm_acc.byteOffset),
                              type=norm_acc.componentType)
-    #GL.glEnableVertexAttribArray(norm_loc)
+    GL.glEnableVertexAttribArray(norm_loc)
     # tex coords
 
     GL.glBindBuffer(GL.GL_ARRAY_BUFFER, bv_tbl[tex_acc.bufferView])
     tex_loc = GL.glGetAttribLocation(mesh.gl_program, "texcoord")
-    #GL.glEnableVertexAttribArray(tex_loc)
+    GL.glEnableVertexAttribArray(tex_loc)
     GL.glVertexAttribPointer(index=tex_loc,
                              size=type_to_dim[tex_acc.type],
                              normalized=tex_acc.normalized,
                              stride=obj.bufferViews[tex_acc.bufferView].byteStride,
-                             pointer=tex_acc.byteOffset,
+                             pointer=ctypes.c_void_p(tex_acc.byteOffset),
                              type=tex_acc.componentType)
-
+    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
     mesh.unbind_vao()
     return mesh
 
