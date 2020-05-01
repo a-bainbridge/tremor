@@ -85,7 +85,6 @@ class ElementRenderer:
 
 
 class Mesh:
-    UP = np.array([0, 1, 0], dtype='float32')
 
     def __init__(self, parent_element, program: shaders.MeshShader = None):
         self.vaoID = GL.glGenVertexArrays(1)
@@ -155,7 +154,7 @@ class Mesh:
                 self.material.get_texture(MaterialTexture.COLOR).index
             )
         self.attributes.bind_all()
-        if self.elemented:
+        if not self.elemented:
             GL.glDrawArrays(GL.GL_TRIANGLES, 0, self.vertex_count)
         else:
             GL.glDrawElements(GL.GL_TRIANGLES, self.faces, GL.GL_UNSIGNED_BYTE, None)

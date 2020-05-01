@@ -6,10 +6,11 @@ from io import BytesIO
 
 import pygltflib
 
-from tremor.core.scene_element import SceneElement
+from tremor.core.entity import Entity
 from tremor.graphics import shaders
+from tremor.graphics.mesh import Mesh
 from tremor.loader import obj_loader
-from tremor.graphics.element_renderer import ElementRenderer, Material, Mesh, BufferSettings
+from tremor.graphics.element_renderer import ElementRenderer, BufferSettings
 import numpy as np
 
 from tremor.graphics.uniforms import Texture
@@ -32,167 +33,74 @@ class DecoratedAccessor:
         self.buffer:bytearray = buffer_view
         self.count = count
 
-
-def load_gltf(filepath, program: shaders.MeshShader = None) -> List[SceneElement]:
-    if program is None:
-        program = shaders.get_default_program()
+def load_gltf(filepath) -> Mesh:
     obj = glb_object(filepath)
-    buffer = bytearray(obj._glb_data)
-    buffer_views = []
-    accessors = []
-    d_accessors:List[DecoratedAccessor] = []
-    textures: List[Texture] = []
-    materials: List[Material] = []
-    for bv in obj.bufferViews:
-        start = bv.byteOffset
-        end = start + bv.byteLength
-        buffer_views.append(buffer[start:end])
 
-    ai = -1
-    for acc in obj.accessors:
-        ai += 1
-        vec = accessor_type_dim(acc.type)
-        count = acc.count
-        buffer_type = accessor_dtype(acc.componentType)
-        buff = buffer_views[acc.bufferView][acc.byteOffset:]
-        buffer_view = obj.bufferViews[acc.bufferView]
-        byte_size = vec * np.array([1], dtype=buffer_type).itemsize
-        if buffer_view.byteStride is None:
-            stride = byte_size
-        else:
-            stride = buffer_view.byteStride
+    mesh = Mesh()
+    mesh.bind_vao()
+    bv_tbl = {}
+    blob = np.frombuffer(obj.binary_blob(), dtype='uint8')
+    obj.destroy_binary_blob()
+    for i in range(len(obj.bufferViews)):
+        buffer_view = obj.bufferViews[i]
+        #images oft have no target. we'll deal with those later
+        if buffer_view.target is not None:
+            bufID = GL.glGenBuffers(1)
+            bv_tbl[i] = bufID
+            GL.glBindBuffer(buffer_view.target, bufID)
+            slice = blob[buffer_view.byteOffset:buffer_view.byteOffset+buffer_view.byteLength]
+            GL.glBufferData(target=buffer_view.target,
+                            size=buffer_view.byteLength,
+                            data=slice,
+                            usage=GL.GL_STATIC_DRAW
+                            )
+            GL.glBindBuffer(buffer_view.target, 0)
+    primitive = obj.meshes[0].primitives[0]
+    pos_acc = obj.accessors[primitive.attributes.POSITION]
+    norm_acc = obj.accessors[primitive.attributes.NORMAL]
+    tex_acc = obj.accessors[primitive.attributes.TEXCOORD_0] #todo make optional
+    index_acc = obj.accessors[primitive.indices] if primitive.indices is not None else None
+    if index_acc is not None:
+        mesh.element = True
+        mesh.elementInfo = index_acc
+        mesh.elementBufID = bv_tbl[index_acc.bufferView]
+    # positions
 
-        better_buff = bytearray([])
-        for i in range(count):
-            offset = i * stride
-            next_value = buff[offset:offset + byte_size]
-            better_buff += next_value
+    pos_loc = GL.glGetAttribLocation(mesh.gl_program, "position")
+    GL.glEnableVertexAttribArray(pos_loc)
+    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, bv_tbl[pos_acc.bufferView])
+    GL.glVertexAttribPointer(index=pos_loc,
+                             size=type_to_dim[pos_acc.type],
+                             normalized=pos_acc.normalized,
+                             stride=obj.bufferViews[pos_acc.bufferView].byteStride,
+                             pointer=pos_acc.byteOffset,
+                             type=pos_acc.componentType)
 
-        npbuff = np.frombuffer(better_buff, dtype=buffer_type)
-        accessors.append(
-            npbuff.reshape((count, vec))  # make it the right dimensions
-        )
-        d_accessors.append(
-            DecoratedAccessor(
-                buffer_view=buff,
-                buffer_settings=BufferSettings(
-                    size=vec,
-                    data_type=acc.componentType,
-                    stride=stride
-                ),
-                count=count
-            )
-        )
+    mesh.tri_count = pos_acc.count // 3  # assume vec3
+    # normals
+    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, bv_tbl[norm_acc.bufferView])
+    norm_loc = GL.glGetAttribLocation(mesh.gl_program, "normal")
+    GL.glVertexAttribPointer(index=norm_loc,
+                             size=type_to_dim[norm_acc.type],
+                             normalized=norm_acc.normalized,
+                             stride=obj.bufferViews[norm_acc.bufferView].byteStride,
+                             pointer=norm_acc.byteOffset,
+                             type=norm_acc.componentType)
+    #GL.glEnableVertexAttribArray(norm_loc)
+    # tex coords
 
+    GL.glBindBuffer(GL.GL_ARRAY_BUFFER, bv_tbl[tex_acc.bufferView])
+    tex_loc = GL.glGetAttribLocation(mesh.gl_program, "texcoord")
+    #GL.glEnableVertexAttribArray(tex_loc)
+    GL.glVertexAttribPointer(index=tex_loc,
+                             size=type_to_dim[tex_acc.type],
+                             normalized=tex_acc.normalized,
+                             stride=obj.bufferViews[tex_acc.bufferView].byteStride,
+                             pointer=tex_acc.byteOffset,
+                             type=tex_acc.componentType)
 
-    for t in obj.textures:
-        if t.sampler is None:
-            sampler = get_default_sampler()
-        else:
-            sampler = obj.samplers[t.sampler]
-        image = obj.images[t.source]
-        data = buffer_views[image.bufferView]
-        textures.append(
-            load_gltf_image(image, data, sampler)
-        )
-
-    for m in obj.materials:
-        try:
-            color = textures[m.pbrMetallicRoughness.baseColorTexture.index]
-        except:
-            color = None
-        try:
-            metallic = textures[m.pbrMetallicRoughness.metallicRoughnessTexture.index]
-        except:
-            metallic = None
-        try:
-            normal = textures[m.normalTexture.index]
-        except:
-            normal = None
-        materials.append(Material.from_gltf_material(m,
-                                                     color_texture=color,
-                                                     metallic_texture=metallic,
-                                                     normal_texture=normal))
-
-    scene_elements: List[SceneElement] = []
-    meshes = obj.meshes
-    node_idx = 0
-    node_stubs = {}
-    for n in obj.nodes:
-        elem = SceneElement(n.name)
-        if n.mesh is not None:
-            m = meshes[n.mesh]
-            elem_renderer = ElementRenderer()
-            elem.renderer = elem_renderer
-            # https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#reference-indices
-            for prim in m.primitives:
-                if prim.mode != 4:  # 4 is for triangles
-                    continue
-                attr = prim.attributes
-                positions = accessors[attr.POSITION]
-                normals = accessors[attr.NORMAL]  # normals are per-vertex
-                mesh = Mesh(elem, program)
-                face_index = prim.indices
-                if face_index is not None:
-                    elements = d_accessors[face_index]
-                    mesh.bind_elements_vbo(elements.buffer, elements.count)
-                    l = len(accessors[face_index])
-                    raw_faces = accessors[face_index].reshape((int(l / 3), 3))
-                    positions = np.asarray(obj_loader.get_vertices_from_faces(positions, raw_faces), dtype='float32')
-                    normals = np.asarray(obj_loader.get_vertices_from_faces(normals, raw_faces), dtype='float32')
-
-                    colors = attr.COLOR_0
-                    if colors is not None:
-                        mesh.bind_float_attribute_vbo(
-                            obj_loader.get_vertices_from_faces(accessors[colors], raw_faces).flatten(), 'color', True)
-                    texcoord = attr.TEXCOORD_0
-                    if texcoord is not None:
-                        uvs = accessors[texcoord]
-                        flat_uvs = obj_loader.get_vertices_from_faces(uvs, raw_faces).flatten()
-                        mesh.has_uvs = True
-                        mesh.bind_float_attribute_vbo(flat_uvs, 'texcoord', True,
-                                                      buffer_settings=BufferSettings(size=2))
-
-                        if prim.material is not None:
-                            mesh.set_material(materials[prim.material])
-
-                # mesh.bind_float_attribute_vbo(positions.flatten(), 'position', True)
-                # mesh.bind_float_attribute_vbo(normals.flatten(), 'normal', True)
-                data_position = d_accessors[attr.POSITION]
-                data_normal = d_accessors[attr.NORMAL]
-                mesh.bind_float_attribute_vbo(data_position.buffer, 'position', True, buffer_settings=data_position.settings)
-                mesh.bind_float_attribute_vbo(data_normal.buffer, 'normal', True, buffer_settings=data_normal.settings)
-
-                elem.renderer.meshes.append(mesh)
-        elem.transform.scale = np.array([1, 1, 1], dtype='float32') * n.scale
-        elem.transform.set_rotation(n.rotation)
-        elem.transform.set_translation(n.translation)
-        elem._node_idx = node_idx
-        if n.children is not None:
-            for child_idx in n.children:
-                if node_idx == child_idx:
-                    raise Exception("Node is its own child???")
-                if node_idx > child_idx:
-                    for r in scene_elements:
-                        if r._node_idx == child_idx:
-                            elem.children.append(r)
-                            r.parent = elem
-                            break
-                else:
-                    if child_idx in node_stubs.keys():
-                        raise Exception("Node is a child of multiple nodes???")
-                    node_stubs[child_idx] = node_idx  # make a note to fill in the child ref when we get there
-        if node_idx in node_stubs.keys():  # resolve stub
-            for r in scene_elements:
-                if r._node_idx == node_stubs[node_idx]:
-                    r.children.append(elem)
-                    elem.parent = r
-                    break
-            node_stubs.pop(node_idx)
-        scene_elements.append(elem)
-        node_idx += 1
-
-    return scene_elements
+    mesh.unbind_vao()
+    return mesh
 
 
 def get_default_sampler() -> pygltflib.Sampler:

@@ -19,16 +19,6 @@ def get_default_program() -> 'MeshShader':
 def get_programs() -> List['MeshShader']:
     return list(PROGRAMS.values())
 
-# gl programs
-def get_gl_program(name: str):
-    return get_program(name).program
-
-def get_gl_default_program():
-    return get_default_program().program
-
-def get_gl_programs() -> list:
-    return [prog.program for prog in get_programs()]
-
 def create_all_programs(filepath='data/shaders/programs.ini',
                         vertex_location: str = 'data/shaders/vertex',
                         fragment_location: str = 'data/shaders/fragment') -> None:

@@ -1,7 +1,7 @@
 import OpenGL
 
 from tremor.core.scene import Scene
-from tremor.core.scene_element import SceneElement
+from tremor.core.entity import Entity
 
 OpenGL.USE_ACCELERATE = False
 
@@ -61,6 +61,7 @@ def create_uniforms():
 def render():
     #current_scene.active_camera.transform.translate_local([0, 0.01, 0])
     scene_renderer.render(current_scene)
+    glFlush()
     fps_clock.capFPS(screen_utils.MAX_FPS)
 
 
@@ -194,7 +195,7 @@ def main():
     })
     scene_file = open("data/scenes/debug.tsf", "r", encoding="utf-8")
     current_scene = scene_loader.load_scene(scene_file)
-    cam = SceneElement("camera")
+    cam = Entity("camera")
     cam.transform.set_translation([3, 3, 3])
     cam.transform.set_rotation(matrix.quaternion_from_angles([0, np.pi/2, 0]))
     current_scene.active_camera = cam

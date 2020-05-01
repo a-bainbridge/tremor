@@ -1,12 +1,8 @@
 0
 debug
 { resources
-lr truck gltf data/gltf/test_gltf/CesiumMilkTruck.glb
-lr trisout gltf data/gltf/trisout.glb
 lr rubberducky gltf data/gltf/test_gltf/Duck.glb
 }
 { elements
-ce testing truck 0 0 0 0 0 0 1 0.5 1
-ce yes trisout 0 2 0 0 0 0 0.02 0.02 0.02
-ce ducky rubberducky 2 2 0 0 270 0 0.005 0.005 0.005
+ce ducky rubberducky 2 2 0 0 270 0 1 1 1
 }

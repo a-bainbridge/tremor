@@ -4,17 +4,17 @@ from tremor.graphics.element_renderer import ElementRenderer
 from tremor.math.transform import Transform
 
 
-class SceneElement:
+class Entity:
     def __init__(self, name):
         self.transform = Transform(self)
-        self.renderer: ElementRenderer = None
+        self.mesh = None
         self.name = name
         self._node_idx = -1
-        self.children: List[SceneElement] = []
-        self.parent: SceneElement = None
+        self.children: List[Entity] = []
+        self.parent: Entity = None
 
     def __str__(self):
-        return self.name + " (SceneElement-" + str(self.__hash__()) + ")"
+        return self.name + " (Entity-" + str(self.__hash__()) + ")"
 
     def is_renderable(self):
-        return self.renderer is not None
+        return self.mesh is not None

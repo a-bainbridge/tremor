@@ -5,7 +5,7 @@ from typing import Dict, List
 from tremor.core.scene import Scene
 import numpy as np
 
-from tremor.core.scene_element import SceneElement
+from tremor.core.entity import Entity
 from tremor.loader.gltf_loader import load_gltf
 from tremor.math import matrix
 
@@ -80,16 +80,12 @@ def load_scene0(name, data_stream) -> Scene:
         else:
             loader = None
         # i'm not entirely happy with the loader producing SceneElements, todo come up with a different approach
-        loaded_elements = loader(raw_res["location"])
-        parent_elem = SceneElement(raw_elem["name"])
+        loaded_mesh = loader(raw_res["location"])
+        parent_elem = Entity(raw_elem["name"])
         parent_elem.transform.set_translation(raw_elem["translation"])
         parent_elem.transform.set_rotation(matrix.quaternion_from_angles(raw_elem["rotation_angles"], degrees=True))
         parent_elem.transform.set_scale(raw_elem["scale"])
-        for l_e in loaded_elements:
-            if l_e.parent is None:
-                l_e.parent = parent_elem
-                parent_elem.children.append(l_e)
-            scene.elements.append(l_e)
+        parent_elem.mesh = loaded_mesh
         scene.elements.append(parent_elem)
     return scene
 

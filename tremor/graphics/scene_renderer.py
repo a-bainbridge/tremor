@@ -33,7 +33,7 @@ def render(scene: Scene):
 
     for element in scene.elements:
         if element.is_renderable():
-            element.renderer.render()
+            element.mesh.render(element.transform)
 
     framecount += 1
 

@@ -23,6 +23,6 @@ void main()
     fposition = vec3(modelViewMatrix * vec4(position, 1.));
     gl_Position = projectionMatrix * viewMatrix * modelViewMatrix * vec4(position, 1.);
     cameraPosition = gl_Position;
-    fcolor = color;
+    fcolor = vec3(1.0, 1.0, 1.0);
     texCoord = texcoord;
 }
