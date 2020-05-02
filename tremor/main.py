@@ -1,3 +1,5 @@
+import time
+
 import OpenGL
 
 from tremor.core.scene import Scene
@@ -61,7 +63,6 @@ def create_uniforms():
 def render():
     #current_scene.active_camera.transform.translate_local([0, 0.01, 0])
     scene_renderer.render(current_scene)
-    glFlush()
     fps_clock.capFPS(screen_utils.MAX_FPS)
 
 
@@ -139,7 +140,6 @@ def main():
     global current_scene
 
     glfw.set_error_callback(error_callback)
-
     if not glfw.init():
         print("GLFW Initialization fail!")
         return
@@ -167,7 +167,7 @@ def main():
         glfw.OPENGL_PROFILE: glfw.OPENGL_CORE_PROFILE
     }
 
-    window = create_window(size=(screen_utils.WIDTH, screen_utils.HEIGHT), pos="centered", title="Quake-like",
+    window = create_window(size=(screen_utils.WIDTH, screen_utils.HEIGHT), pos="centered", title="tremor",
                            monitor=screen, hints=hints,
                            screen_size=glfw.get_monitor_physical_size(glfw.get_primary_monitor()))
     glfw.set_input_mode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
@@ -187,12 +187,12 @@ def main():
     # initialize all the uniforms for all the prpograms
     init_all_uniforms()
 
-    texture_loading.load_all_textures('data/textures', {
-        # https://open.gl/textures
-        'noise_512': {
-            'clamp_mode': GL_REPEAT
-        }
-    })
+    # texture_loading.load_all_textures('data/textures', {
+    #     # https://open.gl/textures
+    #     'noise_512': {
+    #         'clamp_mode': GL_REPEAT
+    #     }
+    # })
     scene_file = open("data/scenes/debug.tsf", "r", encoding="utf-8")
     current_scene = scene_loader.load_scene(scene_file)
     cam = Entity("camera")
