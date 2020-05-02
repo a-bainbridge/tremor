@@ -37,7 +37,10 @@ class DecoratedAccessor:
 
 def load_gltf(filepath) -> Mesh:
     obj = glb_object(filepath)
-
+    if not len(obj.meshes) == 1:
+        raise Exception("only 1 mesh")
+    if not len(obj.meshes[0].primitives) == 1:
+        raise Exception("only 1 primitive")
     mesh = Mesh()
     mesh.bind_vao()
     bv_tbl = {}
@@ -102,6 +105,19 @@ def load_gltf(filepath) -> Mesh:
                              pointer=ctypes.c_void_p(tex_acc.byteOffset),
                              type=tex_acc.componentType)
     GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
+
+    # actually handle textures :)
+    materialIdx = obj.meshes[0].primitives[0].material
+    mat = obj.materials[materialIdx]
+    if not mat.alphaMode == 'OPAQUE':
+        raise Exception("Special case! Discard model, and find the nearest exit.")
+    # thus, we can safely ignore alpha information
+    # lots of annoying cases can be specified, if a model looks weird, it's because those are being discarded
+    # todo add support for normal map, occlusion map, and emissive map?
+    tex = obj.textures[mat.pbrMetallicRoughness.baseColorTexture.index]
+
+    imgBufView = obj.images[tex.source].bufferView
+
     mesh.unbind_vao()
     return mesh
 
