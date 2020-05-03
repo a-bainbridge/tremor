@@ -30,7 +30,14 @@ class Mesh:
         GL.glUseProgram(self.gl_program)
         self.program.update_uniform('modelViewMatrix',
                                     [1, GL.GL_FALSE, transform.to_model_view_matrix_global().transpose()])
-        self.program.update_uniform('isTextured', [False])
+        self.program.update_uniform('isTextured', [self.material.has_texture(MaterialTexture.COLOR)])
+        for mat_tex in self.material.get_all_mat_textures():
+            mat_tex.texture.bind()
+            GL.glUniform1i(
+                GL.glGetUniformLocation(self.gl_program, mat_tex.tex_type),
+                mat_tex.texture.index
+            )
+
         if self.element:
             GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.elementBufID)
             # mode,count,type,indices

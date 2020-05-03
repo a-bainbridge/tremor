@@ -3,8 +3,9 @@ debug
 { resources
 lr rubberducky gltf data/gltf/test_gltf/Duck.glb
 lr duck2 gltf data/gltf/test_gltf/Duck.glb
+lr cube gltf data/gltf/test_gltf/CesiumMan.glb
 }
 { elements
-ce ducky rubberducky 2 2 0 0 270 0 0.005 0.005 0.005
+ce ducky cube 2 2 0 0 270 0 1 1 1
 ce goodduck duck2 2 5 0 90 180 90 0.005 0.005 0.005
 }

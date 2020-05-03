@@ -10,7 +10,7 @@ import pygltflib
 
 from tremor.core.entity import Entity
 from tremor.graphics import shaders
-from tremor.graphics.mesh import Mesh
+from tremor.graphics.mesh import Mesh, MaterialTexture
 from tremor.loader import obj_loader
 from tremor.graphics.element_renderer import ElementRenderer, BufferSettings
 import numpy as np
@@ -46,20 +46,23 @@ def load_gltf(filepath) -> Mesh:
     bv_tbl = {}
     blob = np.frombuffer(obj.binary_blob(), dtype='uint8')
     obj.destroy_binary_blob()
+    image_buffer_data = {}
     for i in range(len(obj.bufferViews)):
         buffer_view = obj.bufferViews[i]
-        #images oft have no target. we'll deal with those later
+        # images oft have no target. we'll deal with those later
+        data_slice = blob[buffer_view.byteOffset:buffer_view.byteOffset + buffer_view.byteLength]
         if buffer_view.target is not None:
             bufID = GL.glGenBuffers(1)
             bv_tbl[i] = bufID
             GL.glBindBuffer(buffer_view.target, bufID)
-            slice = blob[buffer_view.byteOffset:buffer_view.byteOffset+buffer_view.byteLength]
             GL.glBufferData(target=buffer_view.target,
                             size=buffer_view.byteLength,
-                            data=slice,
+                            data=data_slice,
                             usage=GL.GL_STATIC_DRAW
                             )
             GL.glBindBuffer(buffer_view.target, 0)
+        else:
+            image_buffer_data[i] = data_slice
     primitive = obj.meshes[0].primitives[0]
     pos_acc = obj.accessors[primitive.attributes.POSITION]
     norm_acc = obj.accessors[primitive.attributes.NORMAL]
@@ -114,10 +117,11 @@ def load_gltf(filepath) -> Mesh:
     # thus, we can safely ignore alpha information
     # lots of annoying cases can be specified, if a model looks weird, it's because those are being discarded
     # todo add support for normal map, occlusion map, and emissive map?
-    tex = obj.textures[mat.pbrMetallicRoughness.baseColorTexture.index]
+    color_tex = obj.textures[mat.pbrMetallicRoughness.baseColorTexture.index]
+    color_img = obj.images[color_tex.source]
+    color_img_data = image_buffer_data[color_img.bufferView]
 
-    imgBufView = obj.images[tex.source].bufferView
-
+    mesh.material.set_texture(load_gltf_image(color_img, color_img_data, get_default_sampler()), MaterialTexture.COLOR)
     mesh.unbind_vao()
     return mesh
 
