@@ -1,0 +1,9 @@
+{
+name common/temp
+prop clip
+texture checkers
+}
+{
+name common/drawtest
+prop nodraw
+}

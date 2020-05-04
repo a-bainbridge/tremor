@@ -239,9 +239,7 @@ def main():
             'clamp_mode': GL_REPEAT
         }
     })
-
-    scene_file = open("data/scenes/empty.tsf", "r", encoding="utf-8")
-    current_scene = scene_loader.load_scene(scene_file)
+    current_scene = scene_loader.load_scene("empty.tsf")
     cam = SceneElement("camera")
 
     cam.transform.set_translation([3, 3, 3])

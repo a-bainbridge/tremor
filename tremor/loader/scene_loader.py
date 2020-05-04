@@ -1,7 +1,7 @@
 from enum import Enum, unique
 from io import TextIOBase
 from typing import Dict, Callable
-
+import struct
 from tremor.core.scene import Scene
 from tremor.loader.scene import version0
 
@@ -10,9 +10,13 @@ version_map: Dict[int, Callable[[str, TextIOBase], Scene]] = {
 }
 
 
-def load_scene(data_stream) -> Scene:
-    # read header
-    format_version = int(data_stream.readline())
+def load_scene(file) -> Scene:
+    if str.endswith(file, ".tsb"):
+        # do something with binary files
+        pass
+    else:
+        data_stream = open("data/scenes/source/"+file, "r", encoding="utf-8")
+    hdr = data_stream.read(6)
     try:
         loader = version_map[format_version]
     except:
