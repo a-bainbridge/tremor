@@ -62,10 +62,8 @@ class Uniform:
             return
         self.get_uniform_func()(*self.get_args())
 
-
-
-
 # a texture is technically a uniform, of type "sampler2D"
+# https://stackoverflow.com/questions/8866904/differences-and-relationship-between-glactivetexture-and-glbindtexture
 class Texture:
     index = 0
 
@@ -114,22 +112,3 @@ class Texture:
         self.bind()
         # glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
         self.set_texture()
-
-    def update_data(self, data: np.ndarray, width: int = 0, height: int = 0):
-        if width > 0:
-            self.width = width
-        if height > 0:
-            self.height = height
-        self.data = data
-        self.bind()
-        self.set_texture()
-
-    def transfer(self, other_texture: 'Texture'):
-        self.set_format(other_texture.format)
-        self.min_filter = other_texture.min_filter
-        self.mag_filter = other_texture.mag_filter
-        self.clamp_mode = other_texture.clamp_mode
-        self.update_data(other_texture.data, other_texture.width, other_texture.height)
-
-    def set_format(self, img_format):
-        self.format = img_format
