@@ -16,7 +16,6 @@ from tremor.loader import obj_loader
 from tremor.graphics.element_renderer import ElementRenderer, BufferSettings
 import numpy as np
 
-from tremor.graphics.uniforms import Texture
 
 GLTF = pygltflib.GLTF2()
 

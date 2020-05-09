@@ -5,7 +5,6 @@ import pygltflib
 
 from tremor.graphics import shaders
 from tremor.graphics.surfaces import Material
-from tremor.graphics.uniforms import Texture
 import numpy as np
 
 from tremor.math.transform import Transform
@@ -31,6 +30,7 @@ class Mesh:
         GL.glUseProgram(self.gl_program)
         self.program.update_uniform('modelViewMatrix',
                                     [1, GL.GL_FALSE, transform.to_model_view_matrix_global().transpose()])
+        self.program.update_uniform('useTexColor', [self.material.use_tex_color])
         for mat_tex in self.material.get_all_mat_textures():
             GL.glUniform1i(
                 GL.glGetUniformLocation(self.gl_program, mat_tex.tex_type),

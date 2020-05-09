@@ -9,7 +9,7 @@ in vec3 fposition;
 in vec2 texCoord;
 
 uniform sampler2D texColor;
-uniform bool isTextured;
+uniform bool useTexColor;
 uniform float time;
 
 const vec3 ambient = vec3(0.2);
@@ -25,7 +25,7 @@ float alpha_depth_func (float x) {
 void main()
 {
     vec3 col = fcolor * ambient;
-    if (isTextured || true) {
+    if (!useTexColor) {
         vec4 t = texture2D(texColor, texCoord);
         if (t.a < 0.1) discard;
         col = t.rgb * ambient;

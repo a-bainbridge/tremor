@@ -57,7 +57,7 @@ def create_uniforms():
     add_uniform_to_all('time', 'float')
 
     # other
-    add_uniform_to_all('isTextured', 'bool')
+    add_uniform_to_all('useTexColor', 'bool')
 
 
 def render():

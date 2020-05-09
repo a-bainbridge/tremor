@@ -94,11 +94,14 @@ class Material:  # todo: inputs
             MaterialTexture.METALLIC: MaterialTexture(MaterialTexture.METALLIC),
             MaterialTexture.NORMAL: MaterialTexture(MaterialTexture.NORMAL)
         }
-
         self.base_color: np.array = np.array([1, 1, 1])
         self.metallic_factor: float = 1.0  # [0, 1]
         self.roughness_factor: float = 1.0  # [0, 1]
         self.emissive_factor: np.array = np.array([0.0, 0.0, 0.0])
+
+        # . . . or not
+        self.use_tex_color = False
+
         for k, v in kwargs.items():
             if not hasattr(self, k):
                 print('not sure what %s is, but setting it to material %s anyway' % (k, name))

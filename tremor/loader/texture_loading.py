@@ -4,7 +4,7 @@ import PIL, os
 import numpy as np
 from PIL import Image
 
-from tremor.graphics.uniforms import Texture
+from tremor.graphics.element_renderer import Texture
 
 TEXTURES:Dict[str, Texture] = {}
 # https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html

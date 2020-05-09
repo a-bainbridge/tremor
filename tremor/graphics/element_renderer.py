@@ -8,7 +8,6 @@ from PIL import Image
 
 from tremor.graphics import shaders
 from tremor.math import vertex_math, matrix
-from tremor.graphics.uniforms import Texture
 from tremor.math.transform import Transform
 
 
@@ -32,7 +31,7 @@ class Attribute:
         GL.glVertexAttribPointer(self.location, self.settings.size, self.settings.data_type, GL.GL_FALSE,
                                  self.settings.stride, None)
 
-    def unbind (self):
+    def unbind(self):
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
 
     def get_size(self) -> int:
@@ -66,11 +65,11 @@ class Attributes:
                 location) and not self.vbo_id_in_attributes(vbo_id):
             self.attributes.append(Attribute(name=name, location=location, vbo_id=vbo_id, settings=settings))
 
-    def bind_all (self) -> None:
+    def bind_all(self) -> None:
         for a in self.attributes:
             a.bind()
 
-    def unbind_all (self) -> None:
+    def unbind_all(self) -> None:
         for a in self.attributes:
             a.unbind()
 
@@ -99,8 +98,8 @@ class Mesh:
 
         self.has_uvs = False
         self.parent = parent_element
-        self.elemented:bool = False
-        self.faces:int = 0
+        self.elemented: bool = False
+        self.faces: int = 0
 
     def set_material(self, material: 'Material') -> None:
         self.material = material
@@ -113,10 +112,10 @@ class Mesh:
         tex = Texture(data, name='unnamed', width=image.width, height=image.height, img_format=form)
         self.set_texture(tex)
 
-    def set_texture(self, tex: Texture):
+    def set_texture(self, tex: 'Texture'):
         self.material.set_texture(tex, MaterialTexture.COLOR)
 
-    def bind_elements_vbo (self, data, length):
+    def bind_elements_vbo(self, data, length):
         vbo_id = GL.glGenBuffers(1)
         GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, vbo_id)
         GL.glBufferData(GL.GL_ELEMENT_ARRAY_BUFFER, data, GL.GL_STATIC_DRAW)
@@ -124,7 +123,7 @@ class Mesh:
         self.faces = int(length / 3)
 
     def bind_float_attribute_vbo(self, data, attribute_name: str, static: bool,
-                                 buffer_settings: BufferSettings=BufferSettings()):  # must be 4 byte floats
+                                 buffer_settings: BufferSettings = BufferSettings()):  # must be 4 byte floats
         self.bind_vao()
         if attribute_name == 'position':  # aaaaaaaaaaaaaaaaaaaaaa
             self.vertex_count = int(len(data) / 3)
@@ -135,7 +134,8 @@ class Mesh:
         GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo_id)  # bind it
         GL.glBufferData(GL.GL_ARRAY_BUFFER, data,
                         GL.GL_STATIC_DRAW if static else GL.GL_DYNAMIC_DRAW)  # add the data into it
-        GL.glVertexAttribPointer(location, buffer_settings.size, GL.GL_FLOAT, GL.GL_FALSE, buffer_settings.stride, None)  # tell it how to parse it
+        GL.glVertexAttribPointer(location, buffer_settings.size, GL.GL_FLOAT, GL.GL_FALSE, buffer_settings.stride,
+                                 None)  # tell it how to parse it
         # self.attributes.attributes[-1].bind()
         # self.attributes.attributes[-1].unbind()
         self.unbind_vao()
@@ -168,6 +168,59 @@ class Mesh:
 
     def unbind_vao(self):
         GL.glBindVertexArray(0)
+
+
+# a texture is technically a uniform, of type "sampler2D"
+# https://stackoverflow.com/questions/8866904/differences-and-relationship-between-glactivetexture-and-glbindtexture
+class Texture:
+    index = 0
+
+    def __init__(self, data: np.ndarray, name: str, width: int = 1, height: int = 1, min_filter=GL.GL_LINEAR,
+                 mag_filter=GL.GL_LINEAR,
+                 clamp_mode=GL.GL_CLAMP_TO_EDGE, img_format=GL.GL_RGB):
+        self.data = data
+        self.width = width if width > 0 else len(self.data[0])
+        self.height = height if height > 0 else len(self.data)
+        self.name = name
+        self.index = Texture.index
+        self.min_filter = min_filter
+        self.mag_filter = mag_filter
+        self.clamp_mode = clamp_mode
+        self.format = img_format
+        self.texture = None
+        self.init()
+        Texture.index += 1  # increment for other textures
+
+    def set_texture(self):
+        # https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
+        GL.glTexImage2D(
+            GL.GL_TEXTURE_2D,  # target
+            0,  # level
+            GL.gl_compressed_format[self.format],  # internalformat
+            self.width,  # width
+            self.height,  # height
+            0,  # border
+            self.format,  # format
+            GL.GL_UNSIGNED_BYTE,  # type
+            self.data,  # pixels
+        )
+
+        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
+
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL.GL_TEXTURE_MAG_FILTER, self.mag_filter)
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL.GL_TEXTURE_MIN_FILTER, self.min_filter)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL.GL_TEXTURE_WRAP_S, self.clamp_mode)  # u
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL.GL_TEXTURE_WRAP_T, self.clamp_mode)  # v
+
+    def bind(self):
+        GL.glActiveTexture(GL.GL_TEXTURE0 + self.index)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
+
+    def init(self):
+        self.texture = GL.glGenTextures(1)
+        self.bind()
+        # GL.glPixelStorei( GL.GL_UNPACK_ALIGNMENT, 1)
+        self.set_texture()
 
 
 class Material:
