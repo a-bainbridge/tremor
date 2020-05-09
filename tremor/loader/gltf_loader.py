@@ -10,7 +10,8 @@ import pygltflib
 
 from tremor.core.entity import Entity
 from tremor.graphics import shaders
-from tremor.graphics.mesh import Mesh, MaterialTexture
+from tremor.graphics.mesh import Mesh
+from tremor.graphics.surfaces import MaterialTexture, TextureUnit
 from tremor.loader import obj_loader
 from tremor.graphics.element_renderer import ElementRenderer, BufferSettings
 import numpy as np
@@ -136,17 +137,19 @@ def get_default_sampler() -> pygltflib.Sampler:
     return sampler
 
 
-def load_gltf_image(gltf_image: pygltflib.Image, data, sampler: pygltflib.Sampler) -> Texture:
+def load_gltf_image(gltf_image: pygltflib.Image, data, sampler: pygltflib.Sampler) -> TextureUnit:
     img = PIL_Image.open(BytesIO(data))
     img = img.convert('RGBA')
     mode = accessor_color_type(img.mode)
 
     data = np.array(img.getdata(), dtype=np.uint8).flatten()
-    min_filter = accessor_sampler_type(sampler.minFilter)
-    mag_filter = accessor_sampler_type(sampler.magFilter)
-    clamp_mode = accessor_sampler_type(sampler.wrapS)
-    tex = Texture(data, gltf_image.name, width=img.width, height=img.height, img_format=mode, min_filter=min_filter,
-                  mag_filter=mag_filter, clamp_mode=clamp_mode)
+    # min_filter = accessor_sampler_type(sampler.minFilter)
+    # mag_filter = accessor_sampler_type(sampler.magFilter)
+    # clamp_mode = accessor_sampler_type(sampler.wrapS)
+    tex = TextureUnit.generate_texture()
+    tex.bind_tex2d(data, width=img.width, height=img.height, img_format=mode, sampler=sampler)
+    # tex = Texture(data, gltf_image.name, width=img.width, height=img.height, img_format=mode, min_filter=min_filter,
+    #               mag_filter=mag_filter, clamp_mode=clamp_mode)
     return tex
 
 

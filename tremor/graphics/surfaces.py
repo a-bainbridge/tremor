@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 import numpy as np
 
 import pygltflib
@@ -7,14 +7,30 @@ import OpenGL.GL as gl
 
 class TextureUnit:
 
+    # setup:
+    #   - bind to gl context
+    #   - set active texture
+    #      -> setup the texture info
+    #   - set correct uniform per shader (this changes nothing internally within this object)
+    # render: don't do anything
+
     # preferred 'constructor' method
+
+    global_index = 1 # todo: change this
     @staticmethod
-    def generate_texture(index) -> 'TextureUnit':
+    def generate_texture(index=0) -> 'TextureUnit':
+        if index == 0:
+            index = TextureUnit.global_index
+            TextureUnit.global_index += 1
         return TextureUnit(index, gl.glGenTextures(1))
 
     def __init__(self, index: int, texture_unit):
         self.index = index
         self.unit = texture_unit
+
+    def bad_bind (self, target=gl.GL_TEXTURE_2D):
+        self.active()
+        gl.glBindTexture(target, self.unit)
 
     def active(self):
         gl.glActiveTexture(gl.GL_TEXTURE0 + self.index)
@@ -42,7 +58,7 @@ class TextureUnit:
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, sampler.wrapT)
 
 
-class Material: # todo: inputs
+class Material:  # todo: inputs
     # LightingModels:Dict[str, Dict[str, type]] = { # currently unused, but might be helpful for shaders or something
     #     'PHONG': { # maybe do something like this with MeshPrograms instead
     #         'diffuse': float,
@@ -52,8 +68,8 @@ class Material: # todo: inputs
     #     }
     # }
     @staticmethod
-    def from_gltf_material(gltf_mat: pygltflib.Material, color_texture: Texture = None,
-                           metallic_texture: Texture = None, normal_texture: Texture = None) -> 'Material':
+    def from_gltf_material(gltf_mat: pygltflib.Material, color_texture: TextureUnit = None,
+                           metallic_texture: TextureUnit = None, normal_texture: TextureUnit = None) -> 'Material':
         mat = Material(gltf_mat.name)
         if color_texture is not None:
             mat.set_texture(color_texture, MaterialTexture.COLOR)
@@ -91,8 +107,8 @@ class Material: # todo: inputs
     def set_mat_texture(self, mat_texture: 'MaterialTexture') -> None:
         self.textures[mat_texture.tex_type] = mat_texture
 
-    def set_texture(self, texture: Texture,
-                    tex_type: str) -> None:  # helper for set_mat_texture. they do the same thing
+    # helper for set_mat_texture. they do the same thing
+    def set_texture(self, texture: TextureUnit, tex_type: str) -> None:
         self.set_mat_texture(MaterialTexture(tex_type, texture))
 
     def get_mat_texture(self, mat_texture_type: str = None) -> 'MaterialTexture':
@@ -101,7 +117,7 @@ class Material: # todo: inputs
         mat_tex = self.textures[mat_texture_type]
         return mat_tex  # todo note to self: check if exists!!!!!!!!!!
 
-    def get_texture(self, mat_texture_type: str = None) -> Texture:
+    def get_texture(self, mat_texture_type: str = None) -> TextureUnit:
         if mat_texture_type is None:
             mat_texture_type = MaterialTexture.COLOR
         mat_texture = self.get_mat_texture(mat_texture_type)
@@ -116,16 +132,29 @@ class Material: # todo: inputs
     def get_all_mat_textures(self) -> List['MaterialTexture']:
         return [tex for tex in self.textures.values() if tex.exists]
 
-    def get_all_textures(self) -> List[Texture]:
+    def get_all_textures(self) -> List[TextureUnit]:
         return [tex.texture for tex in self.get_all_mat_textures()]
 
 
 class MaterialTexture:
-    COLOR = 'texColor'  # these correspond to uniform names
+    # enum for uniform names
+    COLOR = 'texColor'
     METALLIC = 'texMetallic'
     NORMAL = 'texNormal'
+    OCCLUSION = 'texOcclusion'
+    EMISSIVE = 'texEmissive'
 
-    def __init__(self, tex_type: str, texture: Texture = None):
+    def __init__(self, tex_type: str, texture: TextureUnit = None):
         self.exists: bool = texture is not None
         self.tex_type: str = tex_type
-        self.texture: Texture = texture
+        self.texture = property(self.get_texture, self.set_texture)
+        self.texture = texture
+
+    def get_texture (self) -> TextureUnit:
+        if not self.exists:
+            raise Exception('No texture set!')
+        return self.texture
+
+    def set_texture (self, tex:TextureUnit=None):
+        self.texture = tex
+        self.exists = not tex is None

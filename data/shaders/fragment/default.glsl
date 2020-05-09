@@ -25,7 +25,7 @@ float alpha_depth_func (float x) {
 void main()
 {
     vec3 col = fcolor * ambient;
-    if (isTextured) {
+    if (isTextured || true) {
         vec4 t = texture2D(texColor, texCoord);
         if (t.a < 0.1) discard;
         col = t.rgb * ambient;
