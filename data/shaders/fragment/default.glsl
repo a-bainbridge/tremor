@@ -8,8 +8,8 @@ in vec3 fcolor;
 in vec3 fposition;
 in vec2 texCoord;
 
-uniform sampler2D texColor;
-uniform bool useTexColor;
+uniform sampler2D texColor;//mat
+uniform bool useTexColor;//mat
 uniform float time;
 
 const vec3 ambient = vec3(0.2);

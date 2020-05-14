@@ -79,10 +79,10 @@ class Material:  # todo: inputs
             mat.set_texture(normal_texture, MaterialTexture.NORMAL)
 
         pbr = gltf_mat.pbrMetallicRoughness
-        mat.base_color = pbr.baseColorFactor
-        mat.metallic_factor = pbr.metallicFactor
-        mat.roughness_factor = pbr.roughnessFactor
-        mat.emissive_factor = gltf_mat.emissiveFactor
+        mat.set_property('baseColor', pbr.baseColorFactor)
+        mat.set_property('metallicFactor', pbr.metallicFactor)
+        mat.set_property('roughnessFactor', pbr.roughnessFactor)
+        mat.set_property('emissiveFactor', gltf_mat.emissiveFactor)
         return mat
 
     def __init__(self, name: str = 'unnamed', **kwargs):
@@ -94,18 +94,22 @@ class Material:  # todo: inputs
             MaterialTexture.METALLIC: MaterialTexture(MaterialTexture.METALLIC),
             MaterialTexture.NORMAL: MaterialTexture(MaterialTexture.NORMAL)
         }
-        self.base_color: np.array = np.array([1, 1, 1])
-        self.metallic_factor: float = 1.0  # [0, 1]
-        self.roughness_factor: float = 1.0  # [0, 1]
-        self.emissive_factor: np.array = np.array([0.0, 0.0, 0.0])
+        self._properties:Dict[str, any] = {}
+        # self.base_color: np.array = np.array([1, 1, 1])
+        # self.metallic_factor: float = 1.0  # [0, 1]
+        # self.roughness_factor: float = 1.0  # [0, 1]
+        # self.emissive_factor: np.array = np.array([0.0, 0.0, 0.0])
 
         # . . . or not
-        self.use_tex_color = False
+        # self.use_tex_color = False
 
         for k, v in kwargs.items():
-            if not hasattr(self, k):
-                print('not sure what %s is, but setting it to material %s anyway' % (k, name))
-            setattr(self, k, v)
+            self.set_property(k, v)
+
+    def set_property (self, name, value):
+        self._properties[name] = value
+    def get_property (self, name):
+        return self._properties[name]
 
     def set_mat_texture(self, mat_texture: 'MaterialTexture') -> None:
         self.textures[mat_texture.tex_type] = mat_texture

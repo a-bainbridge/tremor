@@ -15,9 +15,37 @@ u_types: Dict[str, Callable] = {
     'bool': glUniform1i,
     'ivec2': glUniform2i,
     'ivec3': glUniform3i,
-    'mat3': glUniformMatrix3fv,
-    'mat4': glUniformMatrix4fv
+    'mat3': glUniformMatrix3fv, # values as single parameter
+    'mat4': glUniformMatrix4fv # values as single parameter
 }
+u_type_default_value_args:Dict[str, list] = { # outer list matches parameter mapping for gl uniform functions. see u_types
+    'float': [0.0],
+    'vec2': [0., 0.],
+    'vec3': [0., 0., 0.],
+    'vec4': [0., 0., 0., 0.],
+    'int': [0],
+    'bool': [False],
+    'ivec2': [0, 0],
+    'ivec3': [0, 0, 0],
+    'mat3': [[[0,0,0],[0,0,0],[0,0,0]]],
+    'mat4': [[[0,0,0],[0,0,0],[0,0,0],[0,0,0]]]
+}
+u_type_default_args:Dict[str, list] = { # anything not present in this list can be assumed []
+    'mat3': [1, GL_FALSE],
+    'mat4': [1, GL_FALSE]
+}
+# u_type_convert_func:Dict[str, Callable] = { # given a string, with values separated by commas, serialize that string value using this dict
+#     'float': float,
+#     'vec2': float,
+#     'vec3': float,
+#     'vec4': float,
+#     'int': int,
+#     'bool': bool,
+#     'ivec2': int,
+#     'ivec3': int,
+#     'mat3': float,
+#     'mat4': float
+# }
 
 gl_compressed_format: Dict[int, int] = {  # todo: reconsider
     GL_R: GL_COMPRESSED_RED,
