@@ -208,7 +208,7 @@ class MeshShader:
 
     def check_is_uniform(self, name: str) -> bool:  # not a hard stop, but warning
         if not name in self.uniforms:
-            print('%s is not a uniform!' % name)
+            # print('%s is not a uniform!' % name)
             return False
         return True
 

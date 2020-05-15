@@ -58,15 +58,7 @@ class TextureUnit:
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, sampler.wrapT)
 
 
-class Material:  # todo: inputs
-    # LightingModels:Dict[str, Dict[str, type]] = { # currently unused, but might be helpful for shaders or something
-    #     'PHONG': { # maybe do something like this with MeshPrograms instead
-    #         'diffuse': float,
-    #         'specular': float,
-    #         'ambient': float,
-    #         'shinyness': float
-    #     }
-    # }
+class Material:
     @staticmethod
     def from_gltf_material(gltf_mat: pygltflib.Material, color_texture: TextureUnit = None,
                            metallic_texture: TextureUnit = None, normal_texture: TextureUnit = None) -> 'Material':
@@ -95,13 +87,6 @@ class Material:  # todo: inputs
             MaterialTexture.NORMAL: MaterialTexture(MaterialTexture.NORMAL)
         }
         self._properties:Dict[str, any] = {}
-        # self.base_color: np.array = np.array([1, 1, 1])
-        # self.metallic_factor: float = 1.0  # [0, 1]
-        # self.roughness_factor: float = 1.0  # [0, 1]
-        # self.emissive_factor: np.array = np.array([0.0, 0.0, 0.0])
-
-        # . . . or not
-        # self.use_tex_color = False
 
         for k, v in kwargs.items():
             self.set_property(k, v)

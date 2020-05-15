@@ -37,10 +37,10 @@ class DecoratedAccessor:
 
 def load_gltf(filepath) -> Mesh:
     obj = glb_object(filepath)
-    if not len(obj.meshes) == 1:
-        raise Exception("only 1 mesh")
-    if not len(obj.meshes[0].primitives) == 1:
-        raise Exception("only 1 primitive")
+    # if not len(obj.meshes) == 1:
+    #     raise Exception("only 1 mesh")
+    # if not len(obj.meshes[0].primitives) == 1:
+    #     raise Exception("only 1 primitive")
     mesh = Mesh()
     mesh.bind_vao()
     bv_tbl = {}
