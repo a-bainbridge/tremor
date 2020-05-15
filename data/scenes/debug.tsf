@@ -1,8 +1,8 @@
 0
 debug
 { resources
-lr cube gltf data/gltf/test_gltf/normal_map_cube.glb
+lr rubberducky gltf data/gltf/test_gltf/Duck.glb
 }
 { elements
-ce it cube 0 0 0 0 0 0 0 0 0
+ce ducky rubberducky 2 2 0 0 270 0 0.005 0.005 0.005
 }

@@ -93,7 +93,10 @@ class Material:
 
     def set_property (self, name, value):
         self._properties[name] = value
+
     def get_property (self, name):
+        if not name in self._properties.keys():
+            raise Exception(f"Shader requested property '{name}' but material '{self.name}' does not have it.")
         return self._properties[name]
 
     def set_mat_texture(self, mat_texture: 'MaterialTexture') -> None:
@@ -139,14 +142,15 @@ class MaterialTexture:
     def __init__(self, tex_type: str, texture: TextureUnit = None):
         self.exists: bool = texture is not None
         self.tex_type: str = tex_type
-        self.texture = property(self.get_texture, self.set_texture)
-        self.texture = texture
+        self._texture = texture
 
     def get_texture (self) -> TextureUnit:
         if not self.exists:
             raise Exception('No texture set!')
-        return self.texture
+        return self._texture
 
     def set_texture (self, tex:TextureUnit=None):
-        self.texture = tex
+        self._texture = tex
         self.exists = not tex is None
+
+    texture = property(get_texture, set_texture)
