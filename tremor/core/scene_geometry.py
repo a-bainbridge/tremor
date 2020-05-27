@@ -1,4 +1,6 @@
 import numpy as np
+
+from tremor.math.geometry import Plane
 from tremor.math.vertex_math import norm_vec3
 
 
@@ -21,46 +23,6 @@ def check_ccw(v0, v1, v2, p):
         # bad normal!
         print("bad normal detected!")
 
-
-class Plane:
-    def __init__(self, point: np.ndarray, normal: np.ndarray):
-        self.point = point
-        self.normal = norm_vec3(normal)
-
-    @staticmethod
-    def plane_from_points(v0: np.ndarray, v1: np.ndarray, v2: np.ndarray) -> "Plane":
-        n = norm_vec3(np.cross((v1 - v0), (v2 - v0)))
-        return Plane(v0, n)
-
-    @staticmethod
-    def plane_from_points_quake_style(points) -> "Plane":
-        n = norm_vec3(np.cross((points[2] - points[0]), (points[1] - points[0])))
-        return Plane(points[0], n)
-
-    def point_dist(self, point: np.ndarray):
-        return self.normal.dot(point - self.point)
-
-    def intersect_point(self, p1: "Plane", p2: "Plane"):
-        # n1 dot n2 cross n3 == 0, single point of intersection
-        # n1 dot n2 cross n3 != 0, no points or infinite points of intersection
-        a = p2.normal.dot(np.cross(self.normal, p1.normal))
-        if abs(a) < 0.0000002:
-            # print("no single point intersection")
-            return None
-        A = np.array([
-            self.normal,
-            p1.normal,
-            p2.normal
-        ])
-        B = np.array([
-            self.normal.dot(self.point),
-            p1.normal.dot(p1.point),
-            p2.normal.dot(p2.point)
-        ])
-        x = np.linalg.solve(A, B)
-        return x
-
-
 class Brush:
 
     def __init__(self, planes):
@@ -68,7 +30,7 @@ class Brush:
 
     def point_in_brush(self, point):
         for p in self.planes:
-            if p.point_dist(point) > 0.001:
+            if p.point_dist(point) > 0.00001:
                 return False
         return True
 

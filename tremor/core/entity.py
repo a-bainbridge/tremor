@@ -1,7 +1,10 @@
 from typing import List
 
 from tremor.graphics.mesh import Mesh
+from tremor.math.geometry import AABB
 from tremor.math.transform import Transform
+
+import numpy as np
 
 
 class Entity:
@@ -12,6 +15,9 @@ class Entity:
         self.children: List[Entity] = []
         self.parent: Entity = None
         self.classname = ""
+        self.velocity = np.array([0, 0, 0], dtype='float32')
+        self.boundingbox: AABB = None
+        self.gravity = False
 
     def is_renderable(self):
         return self.mesh is not None

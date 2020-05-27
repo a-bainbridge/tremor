@@ -52,6 +52,9 @@ def quaternion_from_angles(angles, degrees=False):
     # angles is angles (rad) around x y z
     return R.from_euler('xyz', angles, degrees=degrees).as_quat()
 
+def rot_from_quat(quat):
+    return R.from_quat(quat).as_rotvec()
+
 def create_scale_matrix (x, y=None, z=None):
     if y is None or z is None:
         y = x

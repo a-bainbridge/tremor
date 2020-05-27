@@ -5,6 +5,7 @@ import OpenGL
 
 from tremor.core.scene import Scene
 from tremor.loader.scene import binloader
+from tremor.math.geometry import AABB
 from tremor.math.vertex_math import norm_vec3
 from tremor.core.entity import Entity
 
@@ -19,7 +20,7 @@ from tremor.graphics.uniforms import *
 import sys
 import glm
 from tremor.graphics import screen_utils, scene_renderer
-from tremor.math import matrix
+from tremor.math import matrix, collision_testing
 
 import imgui
 
@@ -50,6 +51,7 @@ def create_window(size, pos, title, hints, screen_size, monitor=None, share=None
             glfw.window_hint(hint, value)
     win = glfw.create_window(size[0], size[1], title, monitor, share)
     glfw.set_window_pos(win, int(pos[0]), int(pos[1]))
+    glfw.set_input_mode(win, glfw.CURSOR, glfw.CURSOR_DISABLED)
     glfw.make_context_current(win)
     return win
 
@@ -79,7 +81,7 @@ def reshape(w, h):
     screen_utils.HEIGHT = h
 
 wireframe = False
-
+move_keys = [0, 0]
 def keyboard_callback(window, key, scancode, action, mods):
     global wireframe
     imgui_renderer.keyboard_callback(window, key, scancode, action, mods)
@@ -95,7 +97,11 @@ def keyboard_callback(window, key, scancode, action, mods):
                 console.handle_input(str.replace(con_cmd, "+", "-", 1))
         elif action == glfw.PRESS:
             console.handle_input(con_cmd)
+    if key == glfw.KEY_UP:
+        move_keys[0] = action == glfw.PRESS or action == glfw.REPEAT
     if action == glfw.RELEASE:
+        if key == glfw.KEY_SPACE:
+            move_keys[1] = 1000
         return
     if console.SHOW_CONSOLE:
         if key == glfw.KEY_ENTER:
@@ -106,45 +112,14 @@ def keyboard_callback(window, key, scancode, action, mods):
             return
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL if wireframe else GL_LINE)
         wireframe = not wireframe
-    magnitude = 10
-    if mods == 1:
-        tform = current_scene.active_camera.transform
-    else:
-        tform = current_scene.active_camera.transform
-    if key == glfw.KEY_UP:
-        tform.translate_local([magnitude, 0, 0])
-    if key == glfw.KEY_DOWN:
-        tform.translate_local([-magnitude, 0, 0])
-    if key == glfw.KEY_LEFT:
-        tform.translate_local([0, 0, -magnitude])
-    if key == glfw.KEY_RIGHT:
-        tform.translate_local([0, 0, magnitude])
-    if key == glfw.KEY_SPACE:
-        tform.translate_local([0, magnitude, 0])
-    if key == glfw.KEY_LEFT_CONTROL or key == glfw.KEY_RIGHT_CONTROL:
-        tform.translate_local([0, -magnitude, 0])
-    if key == glfw.KEY_Q:
-        tform.rotate_local(matrix.quaternion_from_angles(np.array([0.1, 0, 0])))
-    if key == glfw.KEY_E:
-        tform.rotate_local(matrix.quaternion_from_angles(np.array([-0.1, 0, 0])))
-    if key == glfw.KEY_A:
-        tform.rotate_local(matrix.quaternion_from_angles(np.array([0, 0.1, 0])))
-    if key == glfw.KEY_D:
-        tform.rotate_local(matrix.quaternion_from_angles(np.array([0, -0.1, 0])))
-    if key == glfw.KEY_W:
-        tform.rotate_local(matrix.quaternion_from_angles(np.array([0, 0, -0.1])))
-    if key == glfw.KEY_S:
-        tform.rotate_local(matrix.quaternion_from_angles(np.array([0, 0, 0.1])))
-    if key == glfw.KEY_R:
-        tform.set_translation([0, 0, 0])
-        tform.set_rotation([0, 0, 0, 1])
     inputs['key'] = key
+
 
 
 def mouse_callback(window, x, y):
     imgui_renderer.mouse_callback(window, x, y)
     inputs['mouse'] = [x, y]
-    current_scene.active_camera.transform.set_rotation(matrix.quaternion_from_angles([0, np.pi * np.mod(x/20.0 + 90, 360)/180, 0]))
+    current_scene.active_camera.transform.set_rotation(matrix.quaternion_from_angles([0, np.pi * np.mod(x/10.0, 360)/180, 0]))
 
 
 def mouseclick_callback(window, button, action, modifiers):
@@ -241,9 +216,12 @@ def main():
 
     current_scene = binloader.load_scene_file("data/scenes/out.tmb")
     cam = Entity()
-    cam.transform.set_translation(np.array([64, 64, 64]))
+    cam.transform.set_translation(np.array([0, 30, 0]))
+    cam.boundingbox = AABB.cube(2)
+    cam.gravity = True
+    cam.classname = "cam"
     current_scene.active_camera = cam
-
+    current_scene.entities.append(cam)
     fps_clock.start()
 
     glfw.set_mouse_button_callback(window, mouseclick_callback)
@@ -252,11 +230,21 @@ def main():
     glfw.set_scroll_callback(window, scroll_callback)
     glfw.set_window_size_callback(window, resize_callback)
     glfw.set_char_callback(window, char_callback)
-
+    dt = 1/60.0
     while not glfw.window_should_close(window):
         # todo call an update method as well
         glfw.poll_events()
         imgui_renderer.process_inputs()
+        accel_vec = matrix.rot_from_quat(cam.transform.get_rotation())
+        accel_vec = np.array([np.sin(accel_vec[1]), 0, np.cos(accel_vec[1])])
+        accel_vec = accel_vec * dt * move_keys[0]
+        accel_vec[1] = move_keys[1] * dt
+        move_keys[1] = 0
+        cam.velocity += accel_vec
+        if accel_vec[0] == 0 and accel_vec[2] == 0:
+            cam.velocity[0] -= cam.velocity[0] * 0.99 * dt
+            cam.velocity[2] -= cam.velocity[2] * 0.99 * dt
+        current_scene.tick(dt)
         render()
         imgui.new_frame()
         if console.SHOW_CONSOLE:

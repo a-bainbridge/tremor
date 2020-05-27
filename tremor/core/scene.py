@@ -4,6 +4,10 @@ from tremor.core.entity import Entity
 from tremor.graphics.vbo import VertexBufferObject
 from OpenGL.GL import *
 
+from tremor.math import collision_testing
+from tremor.math.geometry import AABB
+from tremor.math.vertex_math import magnitude_vec3
+
 
 class Scene:
     def __init__(self, name: str):
@@ -39,5 +43,17 @@ class Scene:
     def unbind_scene_vao(self):
         glBindVertexArray(0)
 
-    def tick(self):
+    def tick(self, dt):
+        for ent in self.entities:
+            if ent.classname != "cam":
+                continue
+            if ent.gravity:
+                ent.velocity[1] -= 30.0 * dt
+            bb = ent.boundingbox
+            if magnitude_vec3(ent.velocity) >= 0.000001:
+                next_frame_pos = ent.transform.get_translation() + ent.velocity * dt
+                trace_res = collision_testing.trace(ent.transform.get_translation(), next_frame_pos, bb)
+                if trace_res.collided:
+                    ent.velocity = collision_testing.clamp_velocity(ent.velocity, trace_res)
+                ent.transform.set_translation(trace_res.end_point)
         pass

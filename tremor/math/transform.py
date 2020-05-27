@@ -76,6 +76,11 @@ class Transform:
     def get_scale(self):
         return self._scale
 
+    def translate_global(self, trans_vec: np.ndarray):
+        if not len(trans_vec) == 3:
+            raise Exception("Invalid translation vector!")
+        self.set_translation(trans_vec + self._translation)
+
     def translate_local(self, trans_vec: np.ndarray):
         if not len(trans_vec) == 3:
             raise Exception("Invalid translation vector!")

@@ -1,5 +1,6 @@
 from tremor.core.entity import Entity
 from tremor.core.scene import Scene
+from tremor.core.scene_geometry import Brush
 from tremor.graphics import shaders
 from tremor.graphics.mesh import Mesh
 from tremor.loader import gltf_loader
@@ -7,6 +8,8 @@ from tremor.loader.scene.scene_types import *
 import numpy as np
 import io
 from tremor.loader.texture_loading import load_texture_by_name, TEXTURE_TABLE
+from tremor.math import collision_testing
+from tremor.math.geometry import Plane
 
 
 def parse_keyvalue(string):
@@ -33,6 +36,18 @@ def parse_ents(ent_str):
         current_ent[pair[0]] = pair[1]
     return ents
 
+
+def make_brushes_from_chunks(brush_chunk: BrushChunk, brush_side_chunk: BrushSideChunk, plane_chunk: PlaneChunk):
+    planes = []
+    brushes = []
+    for raw_plane in plane_chunk.items:
+        planes.append(Plane(raw_plane.point, raw_plane.normal))
+    for raw_brush in brush_chunk.items:
+        brushes.append(Brush([planes[raw_side.plane_index]
+                              for raw_side in
+                              brush_side_chunk.items[raw_brush.first_brush_side:
+                                               raw_brush.first_brush_side + raw_brush.brush_side_count]]))
+    return brushes
 
 def load_scene_file(filename) -> Scene:
     global TEXTURE_TABLE
@@ -63,6 +78,8 @@ def load_scene_file(filename) -> Scene:
     plane_chunk = PlaneChunk.from_directory(contents, directory[PLANE_CHUNK_INDEX])
     brush_side_chunk = BrushSideChunk.from_directory(contents, directory[BRUSH_SIDE_CHUNK_INDEX])
     brush_chunk = BrushChunk.from_directory(contents, directory[BRUSH_CHUNK_INDEX])
+    static_brushes_oh_god_please_dont_move = make_brushes_from_chunks(brush_chunk, brush_side_chunk, plane_chunk)
+    collision_testing.world = static_brushes_oh_god_please_dont_move
     i = 0
     for texture in texture_chunk.items:
         load_texture_by_name(str(texture.name, 'utf-8').strip('\0'), i)
@@ -101,16 +118,17 @@ def load_scene_file(filename) -> Scene:
             ent.pop("rotation")
         if "model" in ent:
             model_name = ent["model"]
-            if str.startswith(model_name, "*"): # internal model
+            if str.startswith(model_name, "*"):  # internal model
                 entity.mesh = Mesh()
                 entity.mesh.is_scene_mesh = True
                 model_name = int(model_name.replace("*", ""))
                 entity.mesh.scene_model = model_chunk.items[model_name]
-                entity.mesh.set_shader(shaders.get_branched_program('default').get_program_from_flags([], ["t_texColor"]))
+                entity.mesh.set_shader(
+                    shaders.get_branched_program('default').get_program_from_flags([], ["t_texColor"]))
             else:
-                entity.mesh = gltf_loader.load_gltf("data/"+model_name+".glb")
+                entity.mesh = gltf_loader.load_gltf("data/" + model_name + ".glb")
                 entity.mesh.is_scene_mesh = False
-        for k,v in ent.items():
+        for k, v in ent.items():
             setattr(entity, k, v)
         real_ents.append(entity)
     scene.entities = real_ents
