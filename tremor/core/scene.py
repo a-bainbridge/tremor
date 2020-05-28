@@ -1,11 +1,7 @@
 from typing import List
 
 from tremor.core.entity import Entity
-from tremor.graphics.vbo import VertexBufferObject
-from OpenGL.GL import *
-
 from tremor.math import collision_testing
-from tremor.math.geometry import AABB
 from tremor.math.vertex_math import magnitude_vec3
 
 
@@ -20,6 +16,10 @@ class Scene:
         self.faceIBO = None
 
     def setup_scene_geometry(self, vertex_data, index_data, faces):
+        from tremor.graphics.vbo import VertexBufferObject
+        from OpenGL.GL import glGenVertexArrays, glBindVertexArray, glBindBuffer, GL_FALSE, GL_FLOAT, glGenBuffers, \
+            GL_STATIC_DRAW, \
+            GL_ELEMENT_ARRAY_BUFFER, glBufferData, glVertexAttribPointer, ctypes, glEnableVertexAttribArray
         self.faces = faces
         self.vao = glGenVertexArrays(1)
         glBindVertexArray(self.vao)
@@ -38,15 +38,15 @@ class Scene:
         glBindVertexArray(0)
 
     def bind_scene_vao(self):
+        from OpenGL.GL import glBindVertexArray
         glBindVertexArray(self.vao)
 
     def unbind_scene_vao(self):
+        from OpenGL.GL import glBindVertexArray
         glBindVertexArray(0)
 
     def tick(self, dt):
         for ent in self.entities:
-            if ent.classname != "cam":
-                continue
             if ent.gravity:
                 ent.velocity[1] -= 30.0 * dt
             bb = ent.boundingbox

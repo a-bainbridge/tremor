@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation
-from tremor.math import vertex_math, matrix
+
+from tremor.math import matrix
 
 
 # A transform is a translation, rotation, and scale

@@ -1,14 +1,9 @@
-import sys
-import io
-import time
-from random import random
-from typing import List
 import argparse
+import io
+import sys
+import time
 
-import numpy as np
 from tremor.core.scene_geometry import Brush, Plane
-import struct
-
 from tremor.loader.scene.scene_types import *
 
 
@@ -32,7 +27,7 @@ def parse_side(string):
         plane_points.append(np.array([point[1], point[2], point[0]], dtype='float32'))
     plane = Plane.plane_from_points_quake_style(plane_points)
     plane.texture_name = temp[15]
-    #0 0 0 0.1 0.1
+    # 0 0 0 0.1 0.1
     plane.texture_attributes = (float(temp[19]), float(temp[20]), float(temp[16]), float(temp[17]), float(temp[18]))
     plane.content = int(temp[21])
     plane.surface = int(temp[22])
@@ -116,41 +111,43 @@ def load_texture_cache(datadir):
     return text_cache
 
 
-#xq yq zq -> yt zt xt
-#vec3_t	baseaxis[18] =
-#{
-#{0,0,1}, {1,0,0}, {0,-1,0},			// floor
-#{0,0,-1}, {1,0,0}, {0,-1,0},		// ceiling
-#{1,0,0}, {0,1,0}, {0,0,-1},			// west wall
-#{-1,0,0}, {0,1,0}, {0,0,-1},		// east wall
-#{0,1,0}, {1,0,0}, {0,0,-1},			// south wall
-#{0,-1,0}, {1,0,0}, {0,0,-1}			// north wall
-#};
+# xq yq zq -> yt zt xt
+# vec3_t	baseaxis[18] =
+# {
+# {0,0,1}, {1,0,0}, {0,-1,0},			// floor
+# {0,0,-1}, {1,0,0}, {0,-1,0},		// ceiling
+# {1,0,0}, {0,1,0}, {0,0,-1},			// west wall
+# {-1,0,0}, {0,1,0}, {0,0,-1},		// east wall
+# {0,1,0}, {1,0,0}, {0,0,-1},			// south wall
+# {0,-1,0}, {1,0,0}, {0,0,-1}			// north wall
+# };
 uv_proj_planes = np.array([
-    [0, 1, 0], #floor
-    [0, -1, 0], #ceiling
-    [0, 0, 1], #west wall
-    [0, 0, -1], #east wall
-    [1, 0, 0], #south wall
-    [-1, 0, 0], #north wall
-    [0, 0, 1], #floor_u
-    [-1, 0, 0], #floor_v
-    [0, 0, 1], #ceiling_u
-    [-1, 0, 0], #ceiling_v
-    [1, 0, 0], #west_u
-    [0, -1, 0], #west_v
-    [1, 0, 0], #east_u
-    [0, -1, 0], #east_v
-    [0, 0, 1], #south_u
-    [0, -1, 0], #south_v
-    [0, 0, 1], #north_u
-    [0, -1, 0], #north_v
+    [0, 1, 0],  # floor
+    [0, -1, 0],  # ceiling
+    [0, 0, 1],  # west wall
+    [0, 0, -1],  # east wall
+    [1, 0, 0],  # south wall
+    [-1, 0, 0],  # north wall
+    [0, 0, 1],  # floor_u
+    [-1, 0, 0],  # floor_v
+    [0, 0, 1],  # ceiling_u
+    [-1, 0, 0],  # ceiling_v
+    [1, 0, 0],  # west_u
+    [0, -1, 0],  # west_v
+    [1, 0, 0],  # east_u
+    [0, -1, 0],  # east_v
+    [0, 0, 1],  # south_u
+    [0, -1, 0],  # south_v
+    [0, 0, 1],  # north_u
+    [0, -1, 0],  # north_v
 ], dtype='float32')
 warned_angle = False
-#texture_attributes = (scale_x, scale_y, offset_x, offset_y, angle)
+
+
+# texture_attributes = (scale_x, scale_y, offset_x, offset_y, angle)
 def calculate_uv(texture_size, normal, point, texture_attributes):
     global warned_angle
-    if(texture_attributes[4] != 0.0) and not warned_angle:
+    if (texture_attributes[4] != 0.0) and not warned_angle:
         print("Warning: texture angles are currently unstable and may not produce good results!")
         warned_angle = True
     best_dot = 0
@@ -185,13 +182,14 @@ def calculate_uv(texture_size, normal, point, texture_attributes):
     b = sin * v_axis[sv] + cos * v_axis[tv]
     v_axis[sv] = a
     v_axis[tv] = b
-    u_axis = u_axis * (1/texture_attributes[0])
-    v_axis = v_axis * (1/texture_attributes[1])
+    u_axis = u_axis * (1 / texture_attributes[0])
+    v_axis = v_axis * (1 / texture_attributes[1])
     u = texture_attributes[2] + u_axis.dot(point)
     v = texture_attributes[3] + v_axis.dot(point)
     u /= texture_size[0]
     v /= texture_size[1]
     return u, v
+
 
 def main(args):
     print("loading texture cache")

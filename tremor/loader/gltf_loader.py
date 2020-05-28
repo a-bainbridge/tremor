@@ -1,19 +1,15 @@
 import ctypes
+from io import BytesIO
 from typing import Dict, List, Callable
 
-from OpenGL import GL
-from OpenGL.arrays import ArrayDatatype
-from PIL import Image as PIL_Image
-from io import BytesIO
-
+import numpy as np
 import pygltflib
+from OpenGL import GL
+from PIL import Image as PIL_Image
 
-from tremor.core.entity import Entity
 from tremor.graphics import shaders
 from tremor.graphics.mesh import Mesh
 from tremor.graphics.surfaces import MaterialTexture, TextureUnit, Material
-import numpy as np
-
 from tremor.util import configuration
 
 GLTF = pygltflib.GLTF2()
@@ -38,9 +34,9 @@ class UnboundBuffer:
 
     they are all explained https://www.khronos.org/opengl/wiki/GLAPI/glBindBuffer
     """
-    BIND_WITH_TARGET=True # bind immediately if there is a target
+    BIND_WITH_TARGET = True  # bind immediately if there is a target
 
-    def __init__(self, buffer_view: pygltflib.BufferView, buffer_data, index:int):
+    def __init__(self, buffer_view: pygltflib.BufferView, buffer_data, index: int):
         self.buffer_view = buffer_view
         self.buffer_view_index = index
         self.data = buffer_data
@@ -89,11 +85,12 @@ class UnboundBuffer:
         self.bound = True
 
     # helpers
-    def optional_binder (self) -> Callable:
+    def optional_binder(self) -> Callable:
         if not self.bound:
             return self.bind
         else:
-            return lambda a:a # empty do-nothing function
+            return lambda a: a  # empty do-nothing function
+
     def bind_as_array_buffer(self):
         self.bind(GL.GL_ARRAY_BUFFER)
 
@@ -106,34 +103,36 @@ class UnboundBuffer:
     def bind_as_uniform_buffer(self):
         self.bind(GL.GL_UNIFORM_BUFFER)
 
+
 class UnboundBufferCollection:
     def __init__(self):
-        self._buffers:List[UnboundBuffer] = []
+        self._buffers: List[UnboundBuffer] = []
 
-    def add_buffer (self, buffer:UnboundBuffer):
+    def add_buffer(self, buffer: UnboundBuffer):
         self._buffers.append(buffer)
 
-    def add_buffers (self, buffer_list:List[UnboundBuffer]):
+    def add_buffers(self, buffer_list: List[UnboundBuffer]):
         self._buffers += buffer_list
 
-    def get_buffer (self, buffer_view_index:int) -> UnboundBuffer:
+    def get_buffer(self, buffer_view_index: int) -> UnboundBuffer:
         self._sort()
         for b in self._buffers:
             if buffer_view_index == b.buffer_view_index:
                 return b
-        raise Exception("could not find buffer with index %d"%buffer_view_index)
+        raise Exception("could not find buffer with index %d" % buffer_view_index)
 
-    def __add__ (self, other):
+    def __add__(self, other):
         if type(other) == list:
             self.add_buffers(other)
         else:
             self.add_buffer(other)
 
-    def __getitem__ (self, buffer_view_index:int):
+    def __getitem__(self, buffer_view_index: int):
         return self.get_buffer(buffer_view_index)
 
-    def _sort (self):
-        self._buffers.sort(key=lambda buff:buff.buffer_view_index)
+    def _sort(self):
+        self._buffers.sort(key=lambda buff: buff.buffer_view_index)
+
 
 def load_gltf(filepath) -> Mesh:
     obj = glb_object(filepath)
@@ -141,7 +140,7 @@ def load_gltf(filepath) -> Mesh:
     #     raise Exception("only 1 mesh")
     # if not len(obj.meshes[0].primitives) == 1:
     #     raise Exception("only 1 primitive")
-    mesh = Mesh() # todo: multiple meshes w/ primitives
+    mesh = Mesh()  # todo: multiple meshes w/ primitives
     mesh.bind_vao()
     blob = np.frombuffer(obj.binary_blob(), dtype='uint8')
     obj.destroy_binary_blob()
@@ -158,7 +157,7 @@ def load_gltf(filepath) -> Mesh:
     if index_acc is not None:
         mesh.element = True
         mesh.elementInfo = index_acc
-        index_buff:UnboundBuffer = buffers[index_acc.bufferView]
+        index_buff: UnboundBuffer = buffers[index_acc.bufferView]
         index_buff.optional_binder()(GL.GL_ELEMENT_ARRAY_BUFFER)
         mesh.elementBufID = index_buff.buffer_id
 
@@ -202,12 +201,13 @@ def load_gltf(filepath) -> Mesh:
     # do vbos
     attrs = 'COLOR_0,JOINTS_0,NORMAL,POSITION,TANGENT,TEXCOORD_0,TEXCOORD_1,WEIGHTS_0'.split(',')
     # attrs = 'COLOR_0,NORMAL,POSITION,TEXCOORD_0'.split(',')
-    unsupported = 'JOINTS_0,TANGENT,TEXCOORD_1,WEIGHTS_0'.split(',') # todo: fix this
+    unsupported = 'JOINTS_0,TANGENT,TEXCOORD_1,WEIGHTS_0'.split(',')  # todo: fix this
     for att in attrs:
         val = getattr(primitive.attributes, att)
         if val is None: continue
         if att in unsupported:
-            print(f'WARNING: {att} in model {gltf_mesh.name} is currently unsupported and may cause problems in rendering.')
+            print(
+                f'WARNING: {att} in model {gltf_mesh.name} is currently unsupported and may cause problems in rendering.')
         name = att.lower()
         acc = obj.accessors[val]
         location = GL.glGetAttribLocation(mesh.gl_program, name)
@@ -218,7 +218,8 @@ def load_gltf(filepath) -> Mesh:
             byte_size = np.array([1], dtype=accessor_dtype(acc.componentType)).itemsize
             byte_stride = vec * byte_size
 
-        buff.optional_binder()(GL.GL_ARRAY_BUFFER) # if not bound already, bind with that target (that target is correct for all these attributes)
+        buff.optional_binder()(
+            GL.GL_ARRAY_BUFFER)  # if not bound already, bind with that target (that target is correct for all these attributes)
         if location == -1:
             continue
         GL.glEnableVertexAttribArray(location)
@@ -230,12 +231,13 @@ def load_gltf(filepath) -> Mesh:
                                  byte_stride,
                                  ctypes.c_void_p(acc.byteOffset),
                                  )
-        if name == 'position': # this is ok because gltf specifies position, see attrs
+        if name == 'position':  # this is ok because gltf specifies position, see attrs
             mesh.tri_count = acc.count // 3
     GL.glBindBuffer(GL.GL_ARRAY_BUFFER, 0)
 
     mesh.unbind_vao()
     return mesh
+
 
 def get_default_sampler() -> pygltflib.Sampler:
     # print('created default sampler')
@@ -243,10 +245,11 @@ def get_default_sampler() -> pygltflib.Sampler:
     sampler.wrapS = pygltflib.CLAMP_TO_EDGE  # U # REPEAT
     sampler.wrapT = pygltflib.CLAMP_TO_EDGE  # V
     sampler.minFilter = pygltflib.LINEAR_MIPMAP_LINEAR  # pygltflib.LINEAR
-    sampler.magFilter = pygltflib.LINEAR # this is correct!
+    sampler.magFilter = pygltflib.LINEAR  # this is correct!
     return sampler
 
-def clean_sampler (sampler:pygltflib.Sampler) -> pygltflib.Sampler:
+
+def clean_sampler(sampler: pygltflib.Sampler) -> pygltflib.Sampler:
     default = get_default_sampler()
     for p in 'wrapS,wrapT,minFilter,magFilter'.split(','):
         if getattr(sampler, p) is None:
@@ -255,10 +258,10 @@ def clean_sampler (sampler:pygltflib.Sampler) -> pygltflib.Sampler:
 
 
 def load_gltf_image(gltf_image: pygltflib.Image, data, sampler: pygltflib.Sampler) -> TextureUnit:
-    img:PIL_Image.Image = PIL_Image.open(BytesIO(data))
+    img: PIL_Image.Image = PIL_Image.open(BytesIO(data))
     max_dim = configuration.get_loader_settings().getint('max_texture_dimension')
     if img.width > max_dim or img.height > max_dim:
-        img = img.resize((max_dim, max_dim), resample=PIL_Image.LANCZOS) # supposedly good for downsampling
+        img = img.resize((max_dim, max_dim), resample=PIL_Image.LANCZOS)  # supposedly good for downsampling
     img = img.convert('RGBA')
     mode = accessor_color_type(img.mode)
 

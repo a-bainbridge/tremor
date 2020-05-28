@@ -4,21 +4,25 @@ import numpy as np
 
 from tremor.core.scene_geometry import Brush
 from tremor.math.geometry import Plane, AABB
-
 from tremor.math.vertex_math import norm_vec3, magnitude_vec3
 
 world: List[Brush] = []
 
+
 class TraceResult:
-    def __init__(self, collided: bool, end_point: np.ndarray, path_frac: float, plane_hit: Plane, brush_hit: Brush, surface_normal: np.ndarray):
+    def __init__(self, collided: bool, end_point: np.ndarray, path_frac: float, plane_hit: Plane, brush_hit: Brush,
+                 surface_normal: np.ndarray):
         self.collided = collided
         self.end_point = end_point
         self.path_frac = path_frac
         self.plane_hit = plane_hit
         self.brush_hit = brush_hit
         self.surface_normal = surface_normal
+
     def __str__(self):
-        return "TraceResult: {collided:"+str(self.collided)+", end:"+str(self.end_point)+", frac:"+str(self.path_frac)+"}"
+        return "TraceResult: {collided:" + str(self.collided) + ", end:" + str(self.end_point) + ", frac:" + str(
+            self.path_frac) + "}"
+
 
 # todo don't let large traces pass through objects
 def trace(start_point: np.ndarray, end_point: np.ndarray, aabb: AABB):
@@ -61,8 +65,8 @@ def trace(start_point: np.ndarray, end_point: np.ndarray, aabb: AABB):
     else:
         r_e = magnitude_vec3(min_aabb.center - start_point)
         w_e = magnitude_vec3(end_point - start_point)
-        if r_e/w_e > 1:
-            print("WTF! %f %f %f" % (r_e/w_e, r_e, w_e))
+        if r_e / w_e > 1:
+            print("WTF! %f %f %f" % (r_e / w_e, r_e, w_e))
             print(start_point)
             print(end_point)
             print(start_point + (r_e / w_e) * (end_point - start_point))

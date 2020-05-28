@@ -1,4 +1,5 @@
 import numpy as np
+
 from tremor.math.vertex_math import norm_vec3, magnitude_vec3
 
 
@@ -47,20 +48,20 @@ class AABB:
         self.min_extent = min_extent
         self.max_extent = max_extent
         self.other_verts = AABB._gen_verts(min_extent, max_extent)
-        self.center = (max_extent + min_extent)/2
+        self.center = (max_extent + min_extent) / 2
 
     def aabb_center_distance(self, other):
         return magnitude_vec3(self.center - other.center)
 
     def check_against_plane(self, plane: Plane):
-        if plane.point_dist(self.min_extent) < 0 :
+        if plane.point_dist(self.min_extent) < 0:
             return (0, plane.point_dist(self.min_extent))
         for point in self.other_verts:
             if plane.point_dist(point) < 0:
                 return True
         return False
 
-    #todo this is technically incorrect for sweeps
+    # todo this is technically incorrect for sweeps
     def sit_against_plane(self, plane: Plane):
         closest_dist = 1E9
         for i in range(0, 8):
@@ -69,15 +70,14 @@ class AABB:
             elif i == 1:
                 cur_point = self.max_extent
             else:
-                cur_point = self.other_verts[i-2]
+                cur_point = self.other_verts[i - 2]
             cur_dist = plane.point_dist(cur_point)
             if cur_dist < closest_dist:
                 closest_dist = cur_dist
         return self.translate_new_aabb(closest_dist * -plane.normal)
 
-
     def translate_new_aabb(self, translate_vec: np.ndarray):
-        return AABB(self.min_extent+translate_vec, self.max_extent+translate_vec)
+        return AABB(self.min_extent + translate_vec, self.max_extent + translate_vec)
 
     @staticmethod
     def _gen_verts(min_extent: np.ndarray, max_extent: np.ndarray):
@@ -107,9 +107,11 @@ class AABB:
         other[5][1] = max_extent[1]
         other[5][2] = max_extent[2]
         return other
+
     @staticmethod
     def point():
-        return AABB(np.array([0,0,0],dtype='float32'),np.array([0,0,0],dtype='float32'))
+        return AABB(np.array([0, 0, 0], dtype='float32'), np.array([0, 0, 0], dtype='float32'))
+
     @staticmethod
     def cube(s):
         return AABB(np.array([-s, -s, -s], dtype='float32'), np.array([s, s, s], dtype='float32'))

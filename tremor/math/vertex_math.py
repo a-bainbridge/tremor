@@ -1,5 +1,6 @@
 import numpy
 
+
 # some of these are meant for obj format (elemented arrays), and stl formats (verticies per triangle)
 
 def get_normals(vertex_data, right_hand=True):  # binary vertex data, 3 groups of 3 float 32s represent a triangle
@@ -28,11 +29,12 @@ def get_normals(vertex_data, right_hand=True):  # binary vertex data, 3 groups o
         normals = numpy.append(normals, norm)
     return normals
 
-def get_normals_from_faces (normals_per_face, faces):
+
+def get_normals_from_faces(normals_per_face, faces):
     # assume faces is a 2d array, not collapsed. dimensions of X by 3
     # assuming normals are in the order of the faces,
     # apply the normal to each vertex corresponding to the face
-    normals_per_vertex = [] # 2d list
+    normals_per_vertex = []  # 2d list
     f_index = -1
     for norm in normals_per_face:
         f_index += 1
@@ -43,7 +45,8 @@ def get_normals_from_faces (normals_per_face, faces):
             normals_per_vertex[fv] = norm
     return numpy.asarray(normals_per_vertex, dtype='float32').flatten()
 
-def find_faces_for_vertex (vertex_index:int, faces:list):
+
+def find_faces_for_vertex(vertex_index: int, faces: list):
     # faces is 1d list
     found_faces = []
     for f in faces:
@@ -53,7 +56,8 @@ def find_faces_for_vertex (vertex_index:int, faces:list):
                 break
     return found_faces
 
-def find_vertices_for_face (face, vertices):
+
+def find_vertices_for_face(face, vertices):
     # assume face is array
     # assume vertices is 2d array
     verts = []
@@ -61,19 +65,21 @@ def find_vertices_for_face (face, vertices):
         verts.append(vertices[v])
     return verts
 
-def get_normal_for_face (face, vertices):
+
+def get_normal_for_face(face, vertices):
     # assume face is array
     # assume vertices is 2d array
     verts = find_vertices_for_face(face, vertices)
-    a, b, c = verts[0][0], verts[0][1], verts[0][2] # A
-    i, j, k = verts[1][0], verts[1][1], verts[1][2] # B
-    x, y, z = verts[2][0], verts[2][1], verts[2][2] # C
+    a, b, c = verts[0][0], verts[0][1], verts[0][2]  # A
+    i, j, k = verts[1][0], verts[1][1], verts[1][2]  # B
+    x, y, z = verts[2][0], verts[2][1], verts[2][2]  # C
     CA = [x - a, y - b, z - c]
     CB = [x - i, y - j, z - k]
     norm = cross(CB[0], CB[1], CB[2], CA[0], CA[1], CA[2])
     return numpy.array(norm_vec3(norm), dtype='float32')
 
-def get_normals_from_obj (vertex_pos, faces):
+
+def get_normals_from_obj(vertex_pos, faces):
     # assume vertex_pos is 2d array
     # assume faces is 2d array
     # returns a 2d array of normals
@@ -94,10 +100,11 @@ def get_normals_from_obj (vertex_pos, faces):
         for f in v_faces:
             n = get_normal_for_face(f, vertex_pos)
             norm += n
-        norm /= len(v_faces) # average all the normals
-        norm = norm_vec3(norm) # normalize it
+        norm /= len(v_faces)  # average all the normals
+        norm = norm_vec3(norm)  # normalize it
         normals.append(norm)
     return normals
+
 
 def cross(a, b, c, x, y, z):
     """
@@ -107,33 +114,41 @@ def cross(a, b, c, x, y, z):
     """
     return numpy.array([b * z - y * c, c * x - z * a, a * y - x * b], dtype='float32')
 
-def dot (a, b, c, x, y, z):
+
+def dot(a, b, c, x, y, z):
     return a * x + b * y + c * z
+
 
 def cross_array(v1, v2):
     return cross(v1[0], v1[1], v1[2], v2[0], v2[1], v2[2])
 
+
 def dot_array(a, b):
     return dot(a[0], a[1], a[2], b[0], b[1], b[2])
 
+
 def magnitude_vec3(vec):
     return numpy.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
+
 
 def norm_vec3(vec):
     mag = max(numpy.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]), 0.0001)
     return numpy.array([vec[0] / mag, vec[1] / mag, vec[2] / mag], dtype='float32')
 
+
 def norm_vec(vec):
-    mag = max(numpy.sqrt(sum([n*n for n in vec])), 0.00001)
-    return numpy.asarray([n/mag for n in vec], dtype='float32')
+    mag = max(numpy.sqrt(sum([n * n for n in vec])), 0.00001)
+    return numpy.asarray([n / mag for n in vec], dtype='float32')
+
 
 def quaternion_multiply(quaternion1, quaternion0):
     w0, x0, y0, z0 = quaternion0
     w1, x1, y1, z1 = quaternion1
     return numpy.array([-x1 * x0 - y1 * y0 - z1 * z0 + w1 * w0,
-                     x1 * w0 + y1 * z0 - z1 * y0 + w1 * x0,
-                     -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
-                     x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0], dtype=numpy.float32)
+                        x1 * w0 + y1 * z0 - z1 * y0 + w1 * x0,
+                        -x1 * z0 + y1 * w0 + z1 * x0 + w1 * y0,
+                        x1 * y0 - y1 * x0 + z1 * w0 + w1 * z0], dtype=numpy.float32)
+
 
 # vec2 rotate2D (vec2 p, float angle){
 #     return vec2(p.x*cos(angle)-p.y*sin(angle), p.y*cos(angle)+p.x*sin(angle));
@@ -142,13 +157,14 @@ def quaternion_multiply(quaternion1, quaternion0):
 # ij = k
 # i^2 = j^2 = k^2 = -1
 # ki = j
-def rotate2D (v, angle):
+def rotate2D(v, angle):
     return numpy.array([
         v[0] * numpy.cos(angle) - v[1] * numpy.sin(angle),
         v[1] * numpy.cos(angle) + v[0] * numpy.sin(angle)
     ], dtype='float32')
 
-def euler (anglex, angley, anglez, v):
+
+def euler(anglex, angley, anglez, v):
     # y then x then z
     # yxz
     yr = rotate2D([v[0], v[2]], angley)
@@ -162,22 +178,25 @@ def euler (anglex, angley, anglez, v):
     v[1] = zr[1]
     return v
 
-def concat (*args):
+
+def concat(*args):
     arr = numpy.array([], dtype='float32')
     for a in args:
         arr = numpy.append(arr, a)
     return arr
 
+
 class ModelOp:
     @staticmethod
-    def scale (model, scale_v:numpy.ndarray):
+    def scale(model, scale_v: numpy.ndarray):
         nm = numpy.array(model, dtype='float32')
-        nm[::3] = model[::3] * scale_v[0] # x
-        nm[1::3] = model[1::3] * scale_v[1] # y
-        nm[2::3] = model[2::3] * scale_v[2] # z
+        nm[::3] = model[::3] * scale_v[0]  # x
+        nm[1::3] = model[1::3] * scale_v[1]  # y
+        nm[2::3] = model[2::3] * scale_v[2]  # z
         return nm
+
     @staticmethod
-    def translate (model:numpy.ndarray, trans_v:numpy.ndarray):
+    def translate(model: numpy.ndarray, trans_v: numpy.ndarray):
         nm = numpy.array([], dtype='float32')
         nm[::3] = model[::3] + trans_v[0]
         nm[1::3] = model[1::3] + trans_v[1]

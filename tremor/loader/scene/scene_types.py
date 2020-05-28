@@ -46,7 +46,8 @@ class RawPlane:
         self.normal = normal
 
     def serialize(self):
-        return struct.pack("<ffffff", self.point[0], self.point[1], self.point[2], self.normal[0], self.normal[1], self.normal[2])
+        return struct.pack("<ffffff", self.point[0], self.point[1], self.point[2], self.normal[0], self.normal[1],
+                           self.normal[2])
 
     @staticmethod
     def deserialize(contents):
@@ -339,7 +340,7 @@ class PlaneChunk:
     def serialize(self):
         buf = bytearray(self.length_bytes())
         for i in range(0, len(self.items)):
-            buf[i * RawPlane.size():(i+1) * RawPlane.size()] = self.items[i].serialize()
+            buf[i * RawPlane.size():(i + 1) * RawPlane.size()] = self.items[i].serialize()
         return buf
 
     @staticmethod
@@ -366,7 +367,7 @@ class BrushChunk:
     def serialize(self):
         buf = bytearray(self.length_bytes())
         for i in range(0, len(self.items)):
-            buf[i * RawBrush.size():(i+1) * RawBrush.size()] = self.items[i].serialize()
+            buf[i * RawBrush.size():(i + 1) * RawBrush.size()] = self.items[i].serialize()
         return buf
 
     @staticmethod
@@ -393,7 +394,7 @@ class BrushSideChunk:
     def serialize(self):
         buf = bytearray(self.length_bytes())
         for i in range(0, len(self.items)):
-            buf[i * RawBrushSide.size():(i+1) * RawBrushSide.size()] = self.items[i].serialize()
+            buf[i * RawBrushSide.size():(i + 1) * RawBrushSide.size()] = self.items[i].serialize()
         return buf
 
     @staticmethod

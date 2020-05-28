@@ -1,12 +1,10 @@
 from typing import Dict, List
-import numpy as np
 
-import pygltflib
 import OpenGL.GL as gl
+import pygltflib
 
 
 class TextureUnit:
-
     # setup:
     #   - bind to gl context
     #   - set active texture
@@ -16,7 +14,8 @@ class TextureUnit:
 
     # preferred 'constructor' method
 
-    global_index = 1 # todo: change this
+    global_index = 1  # todo: change this
+
     @staticmethod
     def generate_texture(index=0) -> 'TextureUnit':
         if index == 0:
@@ -28,7 +27,7 @@ class TextureUnit:
         self.index = index
         self.unit = texture_unit
 
-    def bad_bind (self, target=gl.GL_TEXTURE_2D):
+    def bad_bind(self, target=gl.GL_TEXTURE_2D):
         self.active()
         gl.glBindTexture(target, self.unit)
 
@@ -62,6 +61,7 @@ class Material:
     """
     MAGIC: see _do_texture_flags
     """
+
     @staticmethod
     def from_gltf_material(gltf_mat: pygltflib.Material, color_texture: TextureUnit = None,
                            metallic_texture: TextureUnit = None, normal_texture: TextureUnit = None) -> 'Material':
@@ -80,7 +80,7 @@ class Material:
         mat.set_property('emissiveFactor', gltf_mat.emissiveFactor)
         return mat
 
-    def __init__(self, name: str = 'unnamed', flags:List[str]=[], **kwargs):
+    def __init__(self, name: str = 'unnamed', flags: List[str] = [], **kwargs):
         self.name = name
 
         # the textures
@@ -91,27 +91,27 @@ class Material:
         }
         self._texture_flags = []
         self._do_texture_flags()
-        self._properties:Dict[str, any] = {}
-        self._flags:List[str] = flags
+        self._properties: Dict[str, any] = {}
+        self._flags: List[str] = flags
 
         for k, v in kwargs.items():
             self.set_property(k, v)
 
-    def add_flag (self, flag_name):
+    def add_flag(self, flag_name):
         if not flag_name in self._flags:
             self._flags.append(flag_name)
 
-    def remove_flag (self, flag_name):
+    def remove_flag(self, flag_name):
         if flag_name in self._flags:
             self._flags.remove(flag_name)
 
-    def get_flags (self) -> List[str]:
+    def get_flags(self) -> List[str]:
         return self._flags + self._texture_flags
 
-    def set_property (self, name, value):
+    def set_property(self, name, value):
         self._properties[name] = value
 
-    def get_property (self, name):
+    def get_property(self, name):
         if not name in self._properties.keys():
             raise Exception(f"Shader requested property '{name}' but material '{self.name}' does not have it.")
         return self._properties[name]
@@ -153,7 +153,7 @@ class Material:
         self._texture_flags = []
         for tex in self.get_all_mat_textures():
             if tex.exists:
-                self._texture_flags.append(f't_{tex.tex_type}') # magic
+                self._texture_flags.append(f't_{tex.tex_type}')  # magic
 
 
 class MaterialTexture:
@@ -172,12 +172,12 @@ class MaterialTexture:
         self.tex_type: str = tex_type
         self._texture = texture
 
-    def get_texture (self) -> TextureUnit:
+    def get_texture(self) -> TextureUnit:
         if not self.exists:
             raise Exception(f'No texture set for {self.tex_type}!')
         return self._texture
 
-    def set_texture (self, tex:TextureUnit=None):
+    def set_texture(self, tex: TextureUnit = None):
         self._texture = tex
         self.exists = not tex is None
 

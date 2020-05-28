@@ -1,6 +1,7 @@
 import argparse
-import sys
 import os
+import sys
+
 from PIL import Image
 
 acceptable_file_types = ['png', 'jpg', 'jpeg']
@@ -20,9 +21,9 @@ def get_texture_cache(datadir):
                 if not end in acceptable_file_types:
                     continue
                 filename = f[:f.index('.')]
-                print('found texture %s' % d+"/"+filename)
-                img = Image.open(datadir+d+"/"+f, mode='r')
-                texture_cache[d+"/"+filename] = img.size
+                print('found texture %s' % d + "/" + filename)
+                img = Image.open(datadir + d + "/" + f, mode='r')
+                texture_cache[d + "/" + filename] = img.size
                 img.close()
         except NotADirectoryError:
             continue
@@ -30,7 +31,7 @@ def get_texture_cache(datadir):
 
 
 def write_cache(datadir, cache):
-    cache_file = open(datadir+"texturecache.txt", mode="wt")
+    cache_file = open(datadir + "texturecache.txt", mode="wt")
     for name, p in cache.items():
         cache_file.write("%s %s %s\n" % (name, str(p[0]), str(p[1])))
 

@@ -1,8 +1,10 @@
 from enum import Enum
-from typing import Any, Dict, Tuple
+from typing import Any
 
-from tremor.core import key_input
+# todo fixme
 import glfw
+
+from tremor.input import key_input
 
 text_buffer = []
 SHOW_CONSOLE = False
@@ -78,21 +80,25 @@ def _cmdlist(*args):
     for name in cmds.keys():
         conprint(name)
 
+
 @CCmd("bind")
 def _bind(*args):
     if not len(args) == 2:
         conprint("Usage: /bind <key> <command>")
         return
     key_name = str.upper(args[0])
-    if hasattr(glfw, "KEY_"+key_name):
-        key_input.bind_map[getattr(glfw, "KEY_"+key_name)] = args[1]
+    # todo fixme
+    if hasattr(glfw, "KEY_" + key_name):
+        key_input.bind_map[getattr(glfw, "KEY_" + key_name)] = args[1]
     else:
-        conprint("Invalid key "+"KEY_"+key_name)
+        conprint("Invalid key " + "KEY_" + key_name)
+
 
 @CCmd("toggleconsole")
 def _togglecon(*args):
     global SHOW_CONSOLE
     SHOW_CONSOLE = not SHOW_CONSOLE
+
 
 class CVarFlag(Enum):
     READONLY = 1
@@ -122,6 +128,7 @@ def handle_input(console_input):
         cmds[split[0]]()
     else:
         cmds[split[0]](*split[1:])
+
 
 def load_startup(filename):
     with open(filename, "r", encoding="utf-8") as file:

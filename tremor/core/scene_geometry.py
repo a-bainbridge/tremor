@@ -23,6 +23,7 @@ def check_ccw(v0, v1, v2, p):
         # bad normal!
         print("bad normal detected!")
 
+
 class Brush:
 
     def __init__(self, planes):

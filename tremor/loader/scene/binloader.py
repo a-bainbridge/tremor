@@ -1,3 +1,5 @@
+import io
+
 from tremor.core.entity import Entity
 from tremor.core.scene import Scene
 from tremor.core.scene_geometry import Brush
@@ -5,9 +7,7 @@ from tremor.graphics import shaders
 from tremor.graphics.mesh import Mesh
 from tremor.loader import gltf_loader
 from tremor.loader.scene.scene_types import *
-import numpy as np
-import io
-from tremor.loader.texture_loading import load_texture_by_name, TEXTURE_TABLE
+from tremor.loader.texture_loading import load_texture_by_name
 from tremor.math import collision_testing
 from tremor.math.geometry import Plane
 
@@ -46,8 +46,9 @@ def make_brushes_from_chunks(brush_chunk: BrushChunk, brush_side_chunk: BrushSid
         brushes.append(Brush([planes[raw_side.plane_index]
                               for raw_side in
                               brush_side_chunk.items[raw_brush.first_brush_side:
-                                               raw_brush.first_brush_side + raw_brush.brush_side_count]]))
+                                                     raw_brush.first_brush_side + raw_brush.brush_side_count]]))
     return brushes
+
 
 def load_scene_file(filename) -> Scene:
     global TEXTURE_TABLE

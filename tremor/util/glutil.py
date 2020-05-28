@@ -1,12 +1,11 @@
-from collections import Callable
-
 from OpenGL.GL import *
 
 from tremor.core import console
 
 
 def log_capabilities():
-    console.conprint("OPENGL VERSION: " + str(glGetIntegerv(GL_MAJOR_VERSION)) + "." + str(glGetIntegerv(GL_MINOR_VERSION)))
+    console.conprint(
+        "OPENGL VERSION: " + str(glGetIntegerv(GL_MAJOR_VERSION)) + "." + str(glGetIntegerv(GL_MINOR_VERSION)))
     caps = {
         GL_MAX_TEXTURE_SIZE,
         GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS,

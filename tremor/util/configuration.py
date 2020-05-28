@@ -41,7 +41,8 @@ def is_boolean(d, name):
         return False
     return True
 
-schema_t:type = Dict[str, Callable[[Dict[str, object], str], bool]]
+
+schema_t: type = Dict[str, Callable[[Dict[str, object], str], bool]]
 
 graphics_schema: schema_t = {
     "width": is_integer_nonzero_positive,
@@ -58,16 +59,20 @@ loading_schema: schema_t = {
 def get_graphics_settings():
     return get_settings('graphics', graphics_schema)
 
+
 def get_loader_settings():
     return get_settings('loader', loading_schema)
 
-def get_settings (section:str, schema: schema_t, strict=True):
+
+def get_settings(section: str, schema: schema_t, strict=True):
     settings = configparser.ConfigParser()
     settings.read('settings.ini')
     section_settings = settings[section]
     if validate_section(section_settings, schema, strict):
         return section_settings
-    else: return None
+    else:
+        return None
+
 
 def validate_section(section, schema, strict):
     if strict:
