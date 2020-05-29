@@ -1,9 +1,11 @@
 import glfw
 
+from tremor import client_main
 from tremor.core import console
 from tremor.graphics import graphics_subsystem
 from tremor.input import key_input
 
+inputs = {'mouse': [0, 0]}
 
 def init():
     imgui_renderer = graphics_subsystem.imgui_renderer
@@ -48,7 +50,17 @@ def init():
         # inputs['key'] = key
 
     def mouse_callback(window, x, y):
-        # inputs['mouse'] = [x, y]
+        inputs['mouse'] = [x, y]
+        y = y * 0.05
+        x = x * 0.05
+        if y > 90:
+            y = 90
+        if y < -90:
+            y = -90
+        if console.SHOW_CONSOLE:
+            return
+        client_main.viewangles[0] = x % 360
+        client_main.viewangles[1] = y
         pass
 
     glfw.set_mouse_button_callback(window, mouseclick_callback)

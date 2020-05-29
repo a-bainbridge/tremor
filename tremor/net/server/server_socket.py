@@ -1,8 +1,11 @@
 import socket
+import time
 from typing import Tuple
 
 from tremor.net.channel import Channel
-from tremor.net.command import generate_commands, LoginCommand, ResponseCommand
+from tremor.net.command import generate_commands, LoginCommand, ResponseCommand, ChangeMapCommand
+from tremor.net.common import ConnectionState
+from tremor.net.server import conn
 
 
 class ServerSocket:
@@ -21,14 +24,17 @@ class ServerSocket:
         b, a = self._sock.recvfrom(8192)
         return (bytearray(b), a)
 
-    def register_connection(self, addr_id: Tuple[str, int], udp_port: int):
+    def register_connection(self, addr_id: Tuple[str, int], udp_port: int, name: str):
         chan = Channel()
-        self.client_table[addr_id] = [chan, udp_port, addr_id[0]]
-        return chan
+        connection = conn.Connection(addr_id[0], udp_port, addr_id[1], chan, name)
+        connection.connection_time = time.time()
+        connection.connection_state = ConnectionState.CONNECTED
+        self.client_table[addr_id] = connection
+        return connection
 
     def send_to_client(self, dgram, addr_id: Tuple[str, int]):
         if addr_id in self.client_table:
-            self.send_to(dgram, (addr_id[0], self.client_table[addr_id][1]))
+            self.send_to(dgram, (addr_id[0], self.client_table[addr_id].port))
         else:
             raise Exception("No client")
 
@@ -38,8 +44,8 @@ class ServerSocket:
         id = Channel.get_identifier(data)
         tup = (addr[0], id)
         if tup in self.client_table.keys():
-            self.client_table[tup][1] = addr[1]
-            return (self.client_table[tup][0].receive_packet(data), tup)
+            self.client_table[tup].port = addr[1]
+            return self.client_table[tup], self.client_table[tup].channel.receive_packet(data)
         else:
             # be careful here
             try:
@@ -47,9 +53,10 @@ class ServerSocket:
                 cmds = generate_commands(cmd_count, data[11:len(data)])
                 for cmd in cmds:
                     if type(cmd) == LoginCommand:
-                        self.register_connection(tup, addr[1]).queue_command(
-                            ResponseCommand(ResponseCommand.CONNECTION_ESTABLISHED))
-                        return ([cmd], tup)
+                        con = self.register_connection(tup, addr[1], str(cmd.name, 'utf-8'))
+                        con.channel.queue_command(ResponseCommand(ResponseCommand.CONNECTION_ESTABLISHED))
+                        con.channel.queue_command(ChangeMapCommand("out"))
+                        return con, self.client_table[tup].channel.receive_packet(data)
             except:
                 return None
         return None
@@ -58,12 +65,13 @@ class ServerSocket:
         remove = []
         for k, cl in self.client_table.items():
             try:
-                if cl[0].should_disconnect():
-                    dgram = cl[0].generate_disconnect()
+                if cl.channel.should_disconnect():
+                    print("dc'ing")
+                    dgram = cl.channel.generate_disconnect()
                     remove.append(k)
                 else:
-                    dgram = cl[0].generate_outbound_packet()
-                self.send_to(dgram, (cl[2], cl[1]))
+                    dgram = cl.channel.generate_outbound_packet()
+                self.send_to(dgram, (cl.ip, cl.port))
             except Exception as e:
                 remove.append(k)
                 print(e)

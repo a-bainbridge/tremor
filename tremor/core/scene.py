@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from tremor.core.entity import Entity
 from tremor.math import collision_testing
@@ -6,16 +6,19 @@ from tremor.math.vertex_math import magnitude_vec3
 
 
 class Scene:
+    MAX_ENTS = 2048
     def __init__(self, name: str):
         self.name = name
-        self.active_camera: Entity = None
-        self.entities: List[Entity] = None
+        self.current_player_ent: Entity = None
+        self.entities: List[Optional[Entity]] = [None] * Scene.MAX_ENTS
         self.faces: List = None
         self.vao = None
         self.faceVBO = None
         self.faceIBO = None
+        self.has_geometry = False
 
     def setup_scene_geometry(self, vertex_data, index_data, faces):
+        self.has_geometry = True
         from tremor.graphics.vbo import VertexBufferObject
         from OpenGL.GL import glGenVertexArrays, glBindVertexArray, glBindBuffer, GL_FALSE, GL_FLOAT, glGenBuffers, \
             GL_STATIC_DRAW, \
@@ -45,15 +48,21 @@ class Scene:
         from OpenGL.GL import glBindVertexArray
         glBindVertexArray(0)
 
-    def tick(self, dt):
+    def move_entities(self, dt):
         for ent in self.entities:
-            if ent.gravity:
+            if ent is None:
+                continue
+            if ent.flags & Entity.FLAG_GRAVITY:
                 ent.velocity[1] -= 30.0 * dt
             bb = ent.boundingbox
             if magnitude_vec3(ent.velocity) >= 0.000001:
                 next_frame_pos = ent.transform.get_translation() + ent.velocity * dt
                 trace_res = collision_testing.trace(ent.transform.get_translation(), next_frame_pos, bb)
                 if trace_res.collided:
-                    ent.velocity = collision_testing.clamp_velocity(ent.velocity, trace_res)
+                    ent.velocity = collision_testing.clamp_velocity(ent.velocity, trace_res, ent.flags & Entity.FLAG_BOUNCY)
                 ent.transform.set_translation(trace_res.end_point)
+        pass
+
+    def destroy(self):
+        #todo deallocate resources
         pass

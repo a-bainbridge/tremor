@@ -73,9 +73,12 @@ def trace(start_point: np.ndarray, end_point: np.ndarray, aabb: AABB):
         return TraceResult(True, min_aabb.center, (r_e / w_e), min_plane, min_brush, min_plane.normal)
 
 
-def clamp_velocity(velocity: np.ndarray, trace_res: TraceResult):
+def clamp_velocity(velocity: np.ndarray, trace_res: TraceResult, bouncy: int):
     velocity = np.array(velocity, dtype='float64')
-    new = velocity - (velocity.dot(trace_res.surface_normal) * trace_res.surface_normal)
+    if bouncy == 0:
+        new = velocity - (velocity.dot(trace_res.surface_normal) * trace_res.surface_normal)
+    else:
+        new = velocity * -trace_res.surface_normal
     for i in range(0, 3):
         if np.abs(new[i]) < 1E-5:
             new[i] = 0

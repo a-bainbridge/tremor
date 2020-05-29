@@ -3,11 +3,7 @@ import io
 from tremor.core.entity import Entity
 from tremor.core.scene import Scene
 from tremor.core.scene_geometry import Brush
-from tremor.graphics import shaders
-from tremor.graphics.mesh import Mesh
-from tremor.loader import gltf_loader
 from tremor.loader.scene.scene_types import *
-from tremor.loader.texture_loading import load_texture_by_name
 from tremor.math import collision_testing
 from tremor.math.geometry import Plane
 
@@ -50,7 +46,7 @@ def make_brushes_from_chunks(brush_chunk: BrushChunk, brush_side_chunk: BrushSid
     return brushes
 
 
-def load_scene_file(filename) -> Scene:
+def load_scene_file(mapname, filename, make_geometry) -> Scene:
     global TEXTURE_TABLE
     TEXTURE_TABLE = {}
     file = open(filename, "rb")
@@ -82,23 +78,28 @@ def load_scene_file(filename) -> Scene:
     static_brushes_oh_god_please_dont_move = make_brushes_from_chunks(brush_chunk, brush_side_chunk, plane_chunk)
     collision_testing.world = static_brushes_oh_god_please_dont_move
     i = 0
-    for texture in texture_chunk.items:
-        load_texture_by_name(str(texture.name, 'utf-8').strip('\0'), i)
-        i += 1
+    if make_geometry:
+        from tremor.loader.texture_loading import load_texture_by_name
+        for texture in texture_chunk.items:
+            load_texture_by_name(str(texture.name, 'utf-8').strip('\0'), i)
+            i += 1
     scene = Scene(filename)
-    scene.setup_scene_geometry(contents[vertex_entry.start:vertex_entry.start + vertex_entry.length],
-                               contents[model_vertex_entry.start:model_vertex_entry.start + model_vertex_entry.length],
-                               face_chunk.items)
+    if make_geometry:
+        scene.setup_scene_geometry(contents[vertex_entry.start:vertex_entry.start + vertex_entry.length],
+                                   contents[
+                                   model_vertex_entry.start:model_vertex_entry.start + model_vertex_entry.length],
+                                   face_chunk.items)
     fake_ents = parse_ents(str(entity_chunk.contents, 'utf-8'))
-    real_ents = []
+    j = 0
     for ent in fake_ents:
         entity = Entity()
+        entity.flags |= entity.FLAG_WORLD
         entity.classname = ent["classname"]
         ent.pop("classname")
         if "origin" in ent:
             split = str.split(ent["origin"], " ")
             split[0] = float(split[0])
-            split[1] = float(split[1])
+            split[1] = float(64.0)
             split[2] = float(split[2])
             entity.transform.set_translation(np.array(split, dtype='float32'))
             ent.pop("origin")
@@ -119,18 +120,23 @@ def load_scene_file(filename) -> Scene:
             ent.pop("rotation")
         if "model" in ent:
             model_name = ent["model"]
-            if str.startswith(model_name, "*"):  # internal model
-                entity.mesh = Mesh()
-                entity.mesh.is_scene_mesh = True
-                model_name = int(model_name.replace("*", ""))
-                entity.mesh.scene_model = model_chunk.items[model_name]
-                entity.mesh.set_shader(
-                    shaders.get_branched_program('default').get_program_from_flags([], ["t_texColor"]))
-            else:
-                entity.mesh = gltf_loader.load_gltf("data/" + model_name + ".glb")
-                entity.mesh.is_scene_mesh = False
+            if make_geometry:
+                if str.startswith(model_name, "*"):  # internal model
+                    from tremor.graphics.mesh import Mesh
+                    from tremor.graphics import shaders
+                    entity.mesh = Mesh()
+                    entity.mesh.is_scene_mesh = True
+                    model_name = int(model_name.replace("*", ""))
+                    entity.mesh.scene_model = model_chunk.items[model_name]
+                    entity.mesh.set_shader(
+                        shaders.get_branched_program('default').get_program_from_flags([], ["t_texColor"]))
+                else:
+                    from tremor.loader import gltf_loader
+                    entity.mesh = gltf_loader.load_gltf("data/" + model_name + ".glb")
+                    entity.mesh.is_scene_mesh = False
         for k, v in ent.items():
             setattr(entity, k, v)
-        real_ents.append(entity)
-    scene.entities = real_ents
+        scene.entities[j] = entity
+        j += 1
+    scene.name = mapname
     return scene

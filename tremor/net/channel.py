@@ -1,5 +1,6 @@
 import random
 import struct
+import time
 
 from tremor.net.command import generate_commands, ResponseCommand
 
@@ -13,6 +14,7 @@ class Channel:
         self._reliable_waiting = []
         self._command_buffer = []
         self.maximum_cmd_buf = maximum_cmd_buf
+        self._last_received_time = 0
 
     def queue_command(self, cmd, reliable=False):
         if reliable:
@@ -21,7 +23,8 @@ class Channel:
             self._command_buffer.append(cmd)
 
     def should_disconnect(self):
-        return len(self._reliable_waiting) + len(self._command_buffer) > self.maximum_cmd_buf
+        return (len(self._reliable_waiting) + len(self._command_buffer) > self.maximum_cmd_buf) or \
+               (time.time() - self._last_received_time > 10.0 and self._last_received_time > 0)
 
     @staticmethod
     def get_identifier(dgram):
@@ -41,6 +44,7 @@ class Channel:
     def receive_packet(self, dgram):
         seqnum, ackd, id, cmdcount = struct.unpack(">IIHB", dgram[0:11])
         self._last_received_sequence = seqnum
+        self._last_received_time = time.time()
         if ackd & (1 << 31):
             self._reliable_buffer = []
         return generate_commands(cmdcount, dgram[11:len(dgram)])
@@ -86,7 +90,6 @@ class Channel:
         for unreliable in written_unreliable:
             self._command_buffer.remove(unreliable)
         buffer[0:11] = self._write_header(len(self._reliable_buffer) > 0, commands)
-        print("sent")
         return buffer
 
     def generate_disconnect(self):

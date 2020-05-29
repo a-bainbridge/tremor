@@ -92,3 +92,7 @@ def flatten(mat4):
             k = i + 4 * j
             arr[k] = mat4[j][i]
     return arr
+
+
+def quat_from_viewangles(viewangles):
+    return quaternion_from_angles(np.array([0, viewangles[0], 0]), True)

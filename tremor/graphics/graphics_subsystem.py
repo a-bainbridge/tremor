@@ -4,6 +4,9 @@ import OpenGL
 import glm
 
 from tremor.graphics.ui import menus
+from tremor.graphics.ui.state import UIState
+from tremor.math.transform import Transform
+from tremor.net.client import client_net
 
 OpenGL.USE_ACCELERATE = False
 import glfw
@@ -33,7 +36,6 @@ def _create_window(size, pos, title, hints, screen_size, monitor=None, share=Non
             glfw.window_hint(hint, value)
     win = glfw.create_window(size[0], size[1], title, monitor, share)
     glfw.set_window_pos(win, int(pos[0]), int(pos[1]))
-    # glfw.set_input_mode(win, glfw.CURSOR, glfw.CURSOR_DISABLED)
     glfw.make_context_current(win)
     return win
 
@@ -96,18 +98,25 @@ def window_close_requested():
     return glfw.window_should_close(window)
 
 
+framecount = 0
+
+
 def draw_scene(scene):
-    framecount = 0
+    global framecount
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     if scene is None:
         return
     glUseProgram(0)
-    perspective_mat = glm.perspective(glm.radians(100.0), screen_utils.aspect_ratio(), 0.1, 100000.0)
-    tmat = scene.active_camera.transform._get_translation_matrix()
-    rmat = scene.active_camera.transform._get_rotation_matrix()
+    if scene.current_player_ent is None:
+        transform = Transform(None)
+    else:
+        transform = scene.current_player_ent.transform
+    perspective_mat = glm.perspective(glm.radians(90.0), screen_utils.aspect_ratio(), 0.1, 100000.0)
+    tmat = transform._get_translation_matrix_shifted(np.array([0, 48, 0]))
+    rmat = transform._get_rotation_matrix()  # fine as long as we never pitch
     a = tmat.dot(rmat.dot(matrix.create_translation_matrix([1, 0, 0])))
-    cam_vec = glm.vec3(scene.active_camera.transform.get_translation()[:3])
+    cam_vec = glm.vec3((transform.get_translation() + np.array([0, 48, 0]))[:3])
     point_at = glm.vec3(matrix.translation_from_matrix(a)[:3])
     view_mat = glm.lookAt(cam_vec, point_at, glm.vec3([0, 1, 0]))
     model_mat = np.identity(4, dtype='float32')  # by default, no transformations applied
@@ -122,10 +131,14 @@ def draw_scene(scene):
 
     scene.bind_scene_vao()
     for element in scene.entities:
+        if element is None:
+            continue
         if element.is_renderable() and element.mesh.is_scene_mesh:
             element.mesh.render_scene_mesh(scene, element.transform)
 
     for element in scene.entities:
+        if element is None:
+            continue
         if element.is_renderable():
             if not element.mesh.is_scene_mesh:
                 element.mesh.render(element.transform)
@@ -134,14 +147,23 @@ def draw_scene(scene):
 
 def draw_ui():
     imgui.new_frame()
-    menus.show_main_menu()
+    if _ui_state == UIState.MAIN_MENU:
+        glfw.set_input_mode(window, glfw.CURSOR, glfw.CURSOR_NORMAL)
+        menus.show_main_menu()
+    if _ui_state == UIState.IN_GAME_HUD:
+        if console.SHOW_CONSOLE:
+            glfw.set_input_mode(window, glfw.CURSOR, glfw.CURSOR_NORMAL)
+        else:
+            glfw.set_input_mode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
     draw_console()
     imgui.render()
     imgui_renderer.render(imgui.get_draw_data())
     imgui.end_frame()
 
+_console_text_temp = ""
 
 def draw_console():
+    global _console_text_temp
     if console.SHOW_CONSOLE:
         imgui.set_next_window_bg_alpha(0.35)
         imgui.set_next_window_position(0, 0)
@@ -156,11 +178,18 @@ def draw_console():
         imgui.text("")
         imgui.set_scroll_y(imgui.get_scroll_max_y())
         imgui.end_child()
-        enter, text = imgui.input_text("Input", "", 256, imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
+        buf_size = 256
+        if len(_console_text_temp) > 0 and not _console_text_temp[0] == "/":
+            buf_size = 64
+        enter, text = imgui.input_text("Input", _console_text_temp, buf_size, imgui.INPUT_TEXT_ENTER_RETURNS_TRUE)
         if enter:
             if str.startswith(text, "/"):
                 text = str.replace(text, "/", "", 1)
                 console.handle_input(text)
+            else:
+                client_net.send_message(text)
+            text = ""
+        _console_text_temp = text
         imgui.end()
 
 

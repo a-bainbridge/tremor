@@ -3,8 +3,10 @@ import time
 from queue import Queue
 from threading import Thread
 
+from tremor import client_main
 from tremor.net.client.client_socket import ClientSocket
-from tremor.net.command import LoginCommand, MessageCommand, ResponseCommand
+from tremor.net.command import *
+from tremor.net.common import ConnectionState
 
 
 def _listener():
@@ -37,10 +39,11 @@ def shutdown():
     _shutdown = True
 
 
-def connect(address):
+def connect_to_server(address, username):
     _socket.dest_addr = address
-    set_connection_state(1)
-    _socket.chan.queue_command(LoginCommand(0xBEEF, b"Testing"))
+    set_connection_state(ConnectionState.CONNECTING)
+    _socket.chan.queue_command(LoginCommand(0xBEEF, bytes(username, 'utf-8')))
+    _socket._connect_time = time.time()
 
 
 def set_connection_state(state):
@@ -63,20 +66,11 @@ def poll_commands():
     return commands
 
 
-def handle_response(rcmd: ResponseCommand):
-    if rcmd.response_code == ResponseCommand.CONNECTION_ESTABLISHED:
-        set_connection_state(2)
-    elif rcmd.response_code == ResponseCommand.CONNECTION_TERMINATED or \
-            rcmd.response_code == ResponseCommand.CONNECTION_REJECTED:
-        set_connection_state(0)
-
-
 def handle_events():
     cmds = poll_commands()
-    for cmd in cmds:
-        print(cmd)
-        if type(cmd) == ResponseCommand:
-            handle_response(cmd)
+    for cmd_group in cmds:
+        for cmd in cmd_group:
+            client_main.handle(cmd)
 
 
 def write_outbound():
@@ -87,4 +81,8 @@ def write_outbound():
 def send_message(message: str):
     if len(message) > 64:
         print("Message truncated!")
-    _socket.chan.queue_command(MessageCommand(message), True)
+    _socket.chan.queue_command(MessageCommand("", message), False)
+
+
+def queue_update_cmd(viewangles):
+    _socket.chan.queue_command(PlayerUpdateCommand(0, 0, viewangles, 0, 0, 0))
