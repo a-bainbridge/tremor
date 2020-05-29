@@ -99,7 +99,7 @@ def load_scene_file(mapname, filename, make_geometry) -> Scene:
         if "origin" in ent:
             split = str.split(ent["origin"], " ")
             split[0] = float(split[0])
-            split[1] = float(64.0)
+            split[1] = float(split[1])
             split[2] = float(split[2])
             entity.transform.set_translation(np.array(split, dtype='float32'))
             ent.pop("origin")

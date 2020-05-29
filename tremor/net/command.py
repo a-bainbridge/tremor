@@ -3,6 +3,38 @@ import struct
 import numpy as np
 
 
+class PlayerEntityAssignCommand:
+    def __init__(self, entity_id: int):
+        self.entity_id = entity_id
+
+    @staticmethod
+    def get_packet_length():
+        return struct.calcsize(">H")
+
+    @staticmethod
+    def deserialize(buf):
+        return PlayerEntityAssignCommand(struct.unpack(">H", buf)[0])
+
+    def serialize(self):
+        return struct.pack(">BH", 0x08, self.entity_id)
+
+
+class EntityDeleteCommand:
+    def __init__(self, entity_id: int):
+        self.entity_id = entity_id
+
+    @staticmethod
+    def get_packet_length():
+        return struct.calcsize(">H")
+
+    @staticmethod
+    def deserialize(buf):
+        return EntityDeleteCommand(struct.unpack(">H", buf)[0])
+
+    def serialize(self):
+        return struct.pack(">BH", 0x07, self.entity_id)
+
+
 class EntityCreateCommand:
     def __init__(self, entity_id: int, pos: np.ndarray, scale: np.ndarray, rotation: np.ndarray, velocity: np.ndarray,
                  mins: np.ndarray, maxs: np.ndarray, classname: str, flags: int):
@@ -25,25 +57,33 @@ class EntityCreateCommand:
     def deserialize(buf):
         stuf = struct.unpack(">Hfffffffffffffffffff32sB", buf)
         return EntityCreateCommand(stuf[0],
-                                   np.array(*stuf[1:4], dtype='float32'),
-                                   np.array(*stuf[4:7], dtype='float32'),
-                                   np.array(*stuf[7:11], dtype='float32'),
-                                   np.array(*stuf[11:14], dtype='float32'),
-                                   np.array(*stuf[14:17], dtype='float32'),
-                                   np.array(*stuf[17:20], dtype='float32'),
-                                   stuf[20],
+                                   np.array(stuf[1:4], dtype='float32'),
+                                   np.array(stuf[4:7], dtype='float32'),
+                                   np.array(stuf[7:11], dtype='float32'),
+                                   np.array(stuf[11:14], dtype='float32'),
+                                   np.array(stuf[14:17], dtype='float32'),
+                                   np.array(stuf[17:20], dtype='float32'),
+                                   str(stuf[20], 'utf-8').strip('\0'),
                                    stuf[21])
 
     def serialize(self):
         return struct.pack(">BHfffffffffffffffffff32sB",
                            0x06,
+                           self.entity_id,
                            *self.pos,
                            *self.scale,
                            *self.rotation,
+                           *self.velocity,
                            *self.mins,
                            *self.maxs,
-                           self.classname,
+                           bytes(self.classname, 'utf-8'),
                            self.flags)
+
+    @staticmethod
+    def from_ent(id, ent):
+        return EntityCreateCommand(id, ent.transform.get_translation(), ent.transform.get_scale(), ent.transform.get_rotation(),
+                                   ent.velocity, ent.boundingbox.min_extent, ent.boundingbox.max_extent, ent.classname,
+                                   ent.flags)
 
 
 class EntityUpdateCommand:
@@ -61,14 +101,19 @@ class EntityUpdateCommand:
     @staticmethod
     def deserialize(buf):
         stuf = struct.unpack(">Hfffffffffffff", buf)
-        return EntityUpdateCommand(stuf[0], np.array(*stuf[1:4], dtype='float32'),
-                                   np.array(*stuf[4:7], dtype='float32'),
-                                   np.array(*stuf[7:11], dtype='float32'),
-                                   np.array(*stuf[11:14], dtype='float32'))
+        return EntityUpdateCommand(stuf[0], np.array(stuf[1:4], dtype='float32'),
+                                   np.array(stuf[4:7], dtype='float32'),
+                                   np.array(stuf[7:11], dtype='float32'),
+                                   np.array(stuf[11:14], dtype='float32'))
 
     def serialize(self):
         return struct.pack(">BHfffffffffffff", 0x05, self.entity_id, *self.pos, *self.scale, *self.rotation,
                            *self.velocity)
+
+    @staticmethod
+    def from_ent(id, ent):
+        return EntityUpdateCommand(id, ent.transform.get_translation(), ent.transform.get_scale(), ent.transform.get_rotation(),
+                                   ent.velocity)
 
 
 class PlayerUpdateCommand:
@@ -199,8 +244,8 @@ COMMAND_TABLE = {
     0x04: PlayerUpdateCommand,  # C -> S
     0x05: EntityUpdateCommand,  # C <- S
     0x06: EntityCreateCommand,  # C <- S
-    # 0x07: EntityDeleteCommand,  # C <- S
-    # 0x08: PlayerEntityAssignCommand  # C <- S
+    0x07: EntityDeleteCommand,  # C <- S
+    0x08: PlayerEntityAssignCommand  # C <- S
 }
 
 

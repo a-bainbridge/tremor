@@ -113,10 +113,10 @@ def draw_scene(scene):
     else:
         transform = scene.current_player_ent.transform
     perspective_mat = glm.perspective(glm.radians(90.0), screen_utils.aspect_ratio(), 0.1, 100000.0)
-    tmat = transform._get_translation_matrix_shifted(np.array([0, 48, 0]))
+    tmat = transform._get_translation_matrix_shifted(np.array([0, 30, 0]))
     rmat = transform._get_rotation_matrix()  # fine as long as we never pitch
     a = tmat.dot(rmat.dot(matrix.create_translation_matrix([1, 0, 0])))
-    cam_vec = glm.vec3((transform.get_translation() + np.array([0, 48, 0]))[:3])
+    cam_vec = glm.vec3((transform.get_translation() + np.array([0, 30, 0]))[:3])
     point_at = glm.vec3(matrix.translation_from_matrix(a)[:3])
     view_mat = glm.lookAt(cam_vec, point_at, glm.vec3([0, 1, 0]))
     model_mat = np.identity(4, dtype='float32')  # by default, no transformations applied

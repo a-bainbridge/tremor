@@ -17,7 +17,7 @@ def server_net_loop(sock):
                 b, a = sock.recv()
                 inbound_server_queue.put((a, b), True, 0.25)
             except Exception:
-                print("wtf")
+                pass
 
     return loop
 

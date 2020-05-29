@@ -11,7 +11,7 @@ from tremor.net.server import conn
 class ServerSocket:
     def __init__(self, port):
         self._sock = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        self._sock.bind(("", port))
+        self._sock.bind(("0.0.0.0", port))
         self.port = port
         self.client_table = {}
 
@@ -54,8 +54,8 @@ class ServerSocket:
                 for cmd in cmds:
                     if type(cmd) == LoginCommand:
                         con = self.register_connection(tup, addr[1], str(cmd.name, 'utf-8'))
-                        con.channel.queue_command(ResponseCommand(ResponseCommand.CONNECTION_ESTABLISHED))
-                        con.channel.queue_command(ChangeMapCommand("out"))
+                        con.channel.queue_command(ResponseCommand(ResponseCommand.CONNECTION_ESTABLISHED), True)
+                        con.channel.queue_command(ChangeMapCommand("out"), True)
                         return con, self.client_table[tup].channel.receive_packet(data)
             except:
                 return None

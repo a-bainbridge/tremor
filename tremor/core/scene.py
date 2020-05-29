@@ -1,8 +1,9 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from tremor.core.entity import Entity
 from tremor.math import collision_testing
 from tremor.math.vertex_math import magnitude_vec3
+import numpy as np
 
 
 class Scene:
@@ -16,6 +17,19 @@ class Scene:
         self.faceVBO = None
         self.faceIBO = None
         self.has_geometry = False
+
+    def _get_free_ent_slot(self) -> int:
+        idx = 0
+        for ent in self.entities:
+            if ent is None:
+                return idx
+            idx += 1
+        return -1
+
+    def allocate_new_ent(self) -> Tuple[int, Entity]:
+        slot = self._get_free_ent_slot()
+        self.entities[slot] = Entity()
+        return slot, self.entities[slot]
 
     def setup_scene_geometry(self, vertex_data, index_data, faces):
         self.has_geometry = True
@@ -60,7 +74,9 @@ class Scene:
                 trace_res = collision_testing.trace(ent.transform.get_translation(), next_frame_pos, bb)
                 if trace_res.collided:
                     ent.velocity = collision_testing.clamp_velocity(ent.velocity, trace_res, ent.flags & Entity.FLAG_BOUNCY)
-                ent.transform.set_translation(trace_res.end_point)
+                if np.abs(magnitude_vec3(trace_res.end_point - ent.transform.get_translation())) > 0.001:
+                    ent.transform.set_translation(trace_res.end_point)
+                    ent.needs_update = True
         pass
 
     def destroy(self):

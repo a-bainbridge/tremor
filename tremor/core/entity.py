@@ -16,6 +16,7 @@ class Entity:
     FLAG_BOUNCY = 64
     FLAG_INVINCIBLE = 128
     FLAG_NO_TRANSMIT = 256
+
     def __init__(self):
         self.transform = Transform(self)
         self.mesh = None
