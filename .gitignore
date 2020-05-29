@@ -3,3 +3,6 @@ __pycache__
 data/models/test_models/*
 data/gltf/test_gltf/*
 *.tmb
+run.spec
+build/
+dist/

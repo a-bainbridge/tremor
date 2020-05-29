@@ -39,7 +39,7 @@ def handle_login_phase_2(cmd: LoginCommand, cl: Connection):
         idx += 1
     id, player_ent = current_scene.allocate_new_ent()
     player_ent.classname = "player"
-    player_ent.transform.set_translation(np.array([random.random() * 64, 128, random.random() * 64]))
+    player_ent.transform.set_translation(np.array([random.random() * 32, 128, random.random() * 32]))
     player_ent.boundingbox = AABB(np.array([-16, -20, -16]), np.array([16, 20, 16]))
     player_ent.flags = Entity.FLAG_PLAYER | Entity.FLAG_GRAVITY | Entity.FLAG_BOUNCY
     broadcast_packet(EntityCreateCommand.from_ent(id, player_ent),True)
