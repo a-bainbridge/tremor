@@ -51,8 +51,8 @@ def init():
 
     def mouse_callback(window, x, y):
         inputs['mouse'] = [x, y]
-        y = y * 0.05
-        x = x * 0.05
+        y = -y * 0.05
+        x = -x * 0.05
         if y > 90:
             y = 90
         if y < -90:

@@ -17,7 +17,7 @@ from tremor.util import glutil, configuration
 from tremor.graphics.shaders import *
 from tremor.graphics.uniforms import *
 from tremor.graphics import screen_utils
-from tremor.math import matrix
+from tremor.math import matrix, vertex_math
 import numpy as np
 
 window = None
@@ -112,13 +112,17 @@ def draw_scene(scene):
         transform = Transform(None)
     else:
         transform = scene.current_player_ent.transform
+    cam_transform = transform.clone()
+    cam_transform.translate_local(np.array([0, 30, 0]))
     perspective_mat = glm.perspective(glm.radians(90.0), screen_utils.aspect_ratio(), 0.1, 100000.0)
-    tmat = transform._get_translation_matrix_shifted(np.array([0, 30, 0]))
-    rmat = transform._get_rotation_matrix()  # fine as long as we never pitch
+    tmat = cam_transform._get_translation_matrix()
+    rmat = cam_transform._get_rotation_matrix()  # fine as long as we never pitch
     a = tmat.dot(rmat.dot(matrix.create_translation_matrix([1, 0, 0])))
-    cam_vec = glm.vec3((transform.get_translation() + np.array([0, 30, 0]))[:3])
+    b = tmat.dot(rmat.dot(matrix.create_translation_matrix([0, 1, 0])))
+    cam_vec = glm.vec3((matrix.translation_from_matrix(cam_transform.to_model_view_matrix()))[:3])
     point_at = glm.vec3(matrix.translation_from_matrix(a)[:3])
-    view_mat = glm.lookAt(cam_vec, point_at, glm.vec3([0, 1, 0]))
+    up_vec = glm.normalize(glm.vec3(matrix.translation_from_matrix(b)[:3])-cam_vec)
+    view_mat = glm.lookAt(cam_vec, point_at, up_vec)
     model_mat = np.identity(4, dtype='float32')  # by default, no transformations applied
     update_all_uniform('modelViewMatrix', [1, GL_FALSE, model_mat])
     update_all_uniform('viewMatrix', [1, GL_FALSE, np.array(view_mat)])
@@ -161,7 +165,9 @@ def draw_ui():
     imgui_renderer.render(imgui.get_draw_data())
     imgui.end_frame()
 
+
 _console_text_temp = ""
+
 
 def draw_console():
     global _console_text_temp

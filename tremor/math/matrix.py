@@ -57,7 +57,9 @@ def quaternion_from_matrix(mat: np.ndarray):
 
 def quaternion_from_angles(angles, degrees=False):
     # angles is angles (rad) around x y z
-    return R.from_euler('xyz', angles, degrees=degrees).as_quat()
+    r1 = R.from_euler('y', angles[1], degrees=degrees)
+    r2 = R.from_euler('z', angles[2], degrees=degrees)
+    return (r1 * r2).as_quat()
 
 
 def rot_from_quat(quat):
@@ -78,7 +80,7 @@ def create_scale_matrix(x, y=None, z=None):
 def look_at(position, target, up):
     zaxis = vertex_math.norm_vec3(target - position)
     xaxis = vertex_math.norm_vec3(vertex_math.cross_array(vertex_math.norm_vec3(up), zaxis))
-    yaxis = vertex_math.cross_array(zaxis, xaxis)  # quick maths
+    yaxis = vertex_math.norm_vec3(vertex_math.cross_array(zaxis, xaxis))  # quick maths
     rotation = create_rotation_matrix_euler(xaxis, yaxis, zaxis)
     translation = create_translation_matrix(position * -1)
     # rotation[3] = [-np.dot(xaxis, position), -np.dot(zaxis, position), -np.dot(yaxis, position), 1]
@@ -95,4 +97,4 @@ def flatten(mat4):
 
 
 def quat_from_viewangles(viewangles):
-    return quaternion_from_angles(np.array([0, viewangles[0], 0]), True)
+    return quaternion_from_angles(np.array([0, viewangles[0], viewangles[1]]), True)

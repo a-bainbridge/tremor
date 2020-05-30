@@ -67,7 +67,7 @@ def handle_ent_update(cmd: EntityUpdateCommand):
 
 
 def handle_ent_delete(cmd: EntityDeleteCommand):
-    entity = current_scene[cmd.entity_id]
+    entity = current_scene.entities[cmd.entity_id]
     if entity is None:
         return
         # entity.destroy()

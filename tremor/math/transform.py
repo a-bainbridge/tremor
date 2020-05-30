@@ -47,10 +47,6 @@ class Transform:
         trans_mat = matrix.create_translation_matrix(self._translation)
         return trans_mat
 
-    def _get_translation_matrix_shifted(self, shift_vec):
-        trans_mat = matrix.create_translation_matrix(self._translation + shift_vec)
-        return trans_mat
-
     def _get_scale_matrix(self):
         return matrix.create_scale_matrix(*self._scale)
 
