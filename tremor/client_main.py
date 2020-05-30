@@ -2,6 +2,7 @@ import time
 
 from tremor.core import console
 from tremor.core.entity import Entity
+from tremor.core.scene import Scene
 from tremor.graphics import graphics_subsystem
 from tremor.graphics.ui.state import UIState
 from tremor.input import input_subsystem
@@ -9,11 +10,12 @@ from tremor.loader import gltf_loader
 from tremor.loader.scene import binloader
 from tremor.math import matrix
 from tremor.math.geometry import AABB
+from tremor.math.vertex_math import magnitude_vec3
 from tremor.net.client import client_net
 from tremor.net.command import *
 from tremor.net.common import ConnectionState
 
-current_scene = None
+current_scene: Scene = None
 viewangles = np.array([0, 0], dtype='float32')
 
 

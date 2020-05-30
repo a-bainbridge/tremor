@@ -67,7 +67,7 @@ class Scene:
             if ent is None:
                 continue
             if ent.flags & Entity.FLAG_GRAVITY:
-                ent.velocity[1] -= 30.0 * dt
+                ent.velocity[1] -= 64.0 * dt
             bb = ent.boundingbox
             if magnitude_vec3(ent.velocity) >= 0.000001:
                 next_frame_pos = ent.transform.get_translation() + ent.velocity * dt

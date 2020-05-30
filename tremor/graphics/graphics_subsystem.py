@@ -3,7 +3,7 @@ import sys
 import OpenGL
 import glm
 
-from tremor.graphics.ui import menus
+from tremor.graphics.ui import menus, hud
 from tremor.graphics.ui.state import UIState
 from tremor.math.transform import Transform
 from tremor.net.client import client_net
@@ -151,6 +151,7 @@ def draw_ui():
         glfw.set_input_mode(window, glfw.CURSOR, glfw.CURSOR_NORMAL)
         menus.show_main_menu()
     if _ui_state == UIState.IN_GAME_HUD:
+        hud.show_ingame_hud()
         if console.SHOW_CONSOLE:
             glfw.set_input_mode(window, glfw.CURSOR, glfw.CURSOR_NORMAL)
         else:
