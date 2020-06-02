@@ -1,1 +1,3 @@
 bind grave_accent toggleconsole
+bind w +forward
+bind s -forward

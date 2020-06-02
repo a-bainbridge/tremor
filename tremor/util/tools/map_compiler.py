@@ -201,6 +201,13 @@ def main(args):
     output_file.write(HEADER)
     parse_time = time.time()
     ents = parse_map_file(args.map)
+    contained_point = None
+    for ent in ents:
+        if ent["classname"] == "info_player_start":
+            sp = ent["origin"].split(" ")
+            contained_point = np.array([float(sp[1]), float(sp[2]), -float(sp[0])])
+            print(contained_point)
+            break
     parse_time = time.time() - parse_time
     raw_verts = []
     raw_faces = []
@@ -232,7 +239,7 @@ def main(args):
                 vertices = brush.get_vertices()
                 int_time += time.time() - temp
                 for j in range(len(vertices)):
-                    if brush.planes[j].texture_name == "__TB_empty":
+                    if brush.planes[j].texture_name == "__TB_empty" or brush.planes[j].surface & SURF_NODRAW:
                         continue
                     face = vertices[j]
                     raw_vert_start = len(raw_verts)

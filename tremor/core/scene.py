@@ -1,13 +1,15 @@
 from typing import List, Optional, Tuple
 
+import numpy as np
+
 from tremor.core.entity import Entity
 from tremor.math import collision_testing
-from tremor.math.vertex_math import magnitude_vec3
-import numpy as np
+from tremor.math.vertex_math import magnitude_vec3, clamp_horizontal
 
 
 class Scene:
     MAX_ENTS = 2048
+
     def __init__(self, name: str):
         self.name = name
         self.current_player_ent: Entity = None
@@ -62,23 +64,46 @@ class Scene:
         from OpenGL.GL import glBindVertexArray
         glBindVertexArray(0)
 
+    def find_ent_by_classname(self, classname):
+        for ent in self.entities:
+            if ent is None:
+                continue
+            if ent.classname == classname:
+                return ent
+        return None
+
     def move_entities(self, dt):
         for ent in self.entities:
             if ent is None:
                 continue
-            if ent.flags & Entity.FLAG_GRAVITY:
-                ent.velocity[1] -= 64.0 * dt
             bb = ent.boundingbox
+            apply_fric = True
+            if hasattr(ent, "desired_accel_vec"):
+                if magnitude_vec3(ent.desired_accel_vec) >= 0.000001:
+                    apply_fric = False
+                ent.velocity += 32 * ent.desired_accel_vec
+                clamp_horizontal(ent.velocity, 320)
+            if ent.flags & Entity.FLAG_GRAVITY:
+                if not collision_testing.trace(ent.transform.get_translation(),
+                                               ent.transform.get_translation() + np.array([0, -0.01, 0]), bb).collided:
+                    ent.velocity[1] -= 32.0 * dt
+            if apply_fric:
+                if ent.velocity[0] != 0:
+                    ent.velocity[0] -= np.copysign(min(32, np.abs(ent.velocity[0])), ent.velocity[0])
+                if ent.velocity[2] != 0:
+                    ent.velocity[2] -= np.copysign(min(32, np.abs(ent.velocity[2])), ent.velocity[2])
+
             if magnitude_vec3(ent.velocity) >= 0.000001:
                 next_frame_pos = ent.transform.get_translation() + ent.velocity * dt
                 trace_res = collision_testing.trace(ent.transform.get_translation(), next_frame_pos, bb)
                 if trace_res.collided:
-                    ent.velocity = collision_testing.clamp_velocity(ent.velocity, trace_res, ent.flags & Entity.FLAG_BOUNCY)
+                    ent.velocity = collision_testing.clamp_velocity(ent.velocity, trace_res)
+                    pass
                 if np.abs(magnitude_vec3(trace_res.end_point - ent.transform.get_translation())) > 0.001:
                     ent.transform.set_translation(trace_res.end_point)
                     ent.needs_update = True
         pass
 
     def destroy(self):
-        #todo deallocate resources
+        # todo deallocate resources
         pass

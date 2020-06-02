@@ -14,6 +14,8 @@ class ServerSocket:
         self._sock.bind(("0.0.0.0", port))
         self.port = port
         self.client_table = {}
+        self.remove_list = []
+        self.pending_remove = []
 
     def send_to(self, dgram, addr):
         if dgram is None:
@@ -64,16 +66,15 @@ class ServerSocket:
     def send_outgoing_commands(self):
         remove = []
         for k, cl in self.client_table.items():
-            try:
-                if cl.channel.should_disconnect():
-                    print("dc'ing")
-                    dgram = cl.channel.generate_disconnect()
-                    remove.append(k)
-                else:
-                    dgram = cl.channel.generate_outbound_packet()
-                self.send_to(dgram, (cl.ip, cl.port))
-            except Exception as e:
+            if k in self.pending_remove:
                 remove.append(k)
+            try:
+                # if cl.channel.should_disconnect():
+                #     dgram = cl.channel.generate_disconnect()
+                #     remove.append(k)
+                self.send_to(cl.channel.generate_outbound_packet(), (cl.ip, cl.port))
+            except Exception as e:
                 print(e)
-        for c in remove:
-            self.client_table.pop(c)
+                self.remove_list.append(k)
+        for r in remove:
+            self.client_table.pop(r)

@@ -23,62 +23,40 @@ class TraceResult:
         return "TraceResult: {collided:" + str(self.collided) + ", end:" + str(self.end_point) + ", frac:" + str(
             self.path_frac) + "}"
 
-
-# todo don't let large traces pass through objects
+# todo fix: you can walk through slim brushes, minkowski the shit out of this?
 def trace(start_point: np.ndarray, end_point: np.ndarray, aabb: AABB):
-    og_aabb = aabb
     aabb = aabb.translate_new_aabb(start_point - aabb.center)
     diff = end_point - start_point
     direction = norm_vec3(diff)
-    end_aabb = aabb.translate_new_aabb(diff)
-    intersected_brushes = []
+    dist = magnitude_vec3(diff)
+    points = [aabb.min_extent, aabb.max_extent, *aabb.other_verts]
+    intersected_points = []
     for brush in world:
-        if brush.point_in_brush(end_aabb.min_extent):
-            intersected_brushes.append(brush)
-            continue
-        if brush.point_in_brush(end_aabb.max_extent):
-            intersected_brushes.append(brush)
-            continue
-        for point in end_aabb.other_verts:
-            if brush.point_in_brush(point):
-                if brush not in intersected_brushes:
-                    intersected_brushes.append(brush)
-    new_aabbs = []
-    for brush in intersected_brushes:
-        for plane in brush.planes:
-            t = end_aabb.sit_against_plane(plane)
-            if t is not None:
-                new_aabbs.append((t, plane, brush))
-    min_move = 1E9
-    min_aabb = None
-    min_plane = None
-    min_brush = None
-    for bb, plane, brush in new_aabbs:
-        center_move = bb.aabb_center_distance(aabb)
-        if min_move > center_move:
-            min_move = center_move
-            min_aabb = bb
-            min_plane = plane
-            min_brush = brush
-    if min_aabb is None:
-        return TraceResult(False, end_aabb.center, 1.0, None, None, None)
-    else:
-        r_e = magnitude_vec3(min_aabb.center - start_point)
-        w_e = magnitude_vec3(end_point - start_point)
-        if r_e / w_e > 1:
-            print("WTF! %f %f %f" % (r_e / w_e, r_e, w_e))
-            print(start_point)
-            print(end_point)
-            print(start_point + (r_e / w_e) * (end_point - start_point))
-        return TraceResult(True, min_aabb.center, (r_e / w_e), min_plane, min_brush, min_plane.normal)
+        for point in points:
+            intersection, span, plane = brush.get_ray_intersection(point, direction, dist)
+            if intersection is None:
+                continue
+            intersected_points.append([intersection, span, brush, plane])
+    best_intersection_span = 9E99
+    best_intersection_brush = None
+    plane = None
+    for intersected in intersected_points:
+        if intersected[1] < best_intersection_span:
+            best_intersection_span = intersected[1]
+            best_intersection_brush = intersected[2]
+            plane = intersected[3]
+    if best_intersection_span > 1:
+        best_intersection_span = 1
+    return TraceResult(plane is not None,
+                       best_intersection_span * diff + start_point,
+                       best_intersection_span,
+                       plane,
+                       best_intersection_brush,
+                       None if plane is None else plane.normal)
 
-
-def clamp_velocity(velocity: np.ndarray, trace_res: TraceResult, bouncy: int):
+def clamp_velocity(velocity: np.ndarray, trace_res: TraceResult):
     velocity = np.array(velocity, dtype='float64')
-    if bouncy == 0:
-        new = velocity - (velocity.dot(trace_res.surface_normal) * trace_res.surface_normal)
-    else:
-        new = velocity * -trace_res.surface_normal
+    new = velocity - (velocity.dot(trace_res.surface_normal) * trace_res.surface_normal)
     for i in range(0, 3):
         if np.abs(new[i]) < 1E-5:
             new[i] = 0

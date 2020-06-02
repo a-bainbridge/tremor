@@ -49,6 +49,7 @@ graphics_schema: schema_t = {
     "height": is_integer_nonzero_positive,
     "full_screen": is_boolean,
     "max_fps": lambda x, y: is_integer_nonzero_positive(x, y) and int(x[y]) >= 30,  # minimum fps
+    "screen": is_integer
 }
 
 loading_schema: schema_t = {

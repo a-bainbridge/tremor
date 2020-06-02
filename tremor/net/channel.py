@@ -93,8 +93,4 @@ class Channel:
         return buffer
 
     def generate_disconnect(self):
-        self._command_buffer = []
-        self._reliable_buffer = []
-        self._reliable_waiting = []
         self.queue_command(ResponseCommand(ResponseCommand.CONNECTION_TERMINATED))
-        return self.generate_outbound_packet()

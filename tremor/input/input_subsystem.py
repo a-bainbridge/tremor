@@ -2,10 +2,29 @@ import glfw
 
 from tremor import client_main
 from tremor.core import console
+from tremor.core.console import CCmd
 from tremor.graphics import graphics_subsystem
 from tremor.input import key_input
 
 inputs = {'mouse': [0, 0]}
+move_inputs = {"forward": 0}
+
+
+@CCmd("+forward")
+def plus_forward():
+    if move_inputs["forward"] < 0:
+        move_inputs["forward"] = 0
+    else:
+        move_inputs["forward"] = 127
+
+
+@CCmd("-forward")
+def minus_forward():
+    if move_inputs["forward"] > 0:
+        move_inputs["forward"] = 0
+    else:
+        move_inputs["forward"] = -127
+
 
 def init():
     imgui_renderer = graphics_subsystem.imgui_renderer
@@ -38,6 +57,13 @@ def init():
                 elif action == glfw.RELEASE:
                     # todo input queue
                     console.handle_input(str.replace(con_cmd, "+", "-", 1))
+            elif str.startswith(con_cmd, "-"):
+                if action == glfw.PRESS:
+                    # todo input queue
+                    console.handle_input(con_cmd)
+                elif action == glfw.RELEASE:
+                    # todo input queue
+                    console.handle_input(str.replace(con_cmd, "-", "+", 1))
             elif action == glfw.PRESS:
                 # todo input queue
                 console.handle_input(con_cmd)
@@ -70,9 +96,11 @@ def init():
     glfw.set_window_size_callback(window, resize_callback)
     glfw.set_char_callback(window, char_callback)
 
+
 def poll_events():
     glfw.poll_events()
     graphics_subsystem.imgui_renderer.process_inputs()
+
 
 def shutdown():
     pass

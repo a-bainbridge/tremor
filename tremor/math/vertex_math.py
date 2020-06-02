@@ -131,6 +131,9 @@ def magnitude_vec3(vec):
     return numpy.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
 
 
+def magnitude_horizontal(vec):
+    return numpy.sqrt(vec[0] * vec[0] + vec[2] * vec[2])
+
 def norm_vec3(vec):
     mag = max(numpy.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]), 0.0001)
     return numpy.array([vec[0] / mag, vec[1] / mag, vec[2] / mag], dtype='float32')
@@ -139,6 +142,14 @@ def norm_vec3(vec):
 def norm_vec(vec):
     mag = max(numpy.sqrt(sum([n * n for n in vec])), 0.00001)
     return numpy.asarray([n / mag for n in vec], dtype='float32')
+
+
+def clamp_horizontal(vec, maximum_velocity):
+    horiz_mag = magnitude_horizontal(vec)
+    if horiz_mag > maximum_velocity:
+        scale_factor = maximum_velocity / horiz_mag
+        vec[0] = vec[0] * scale_factor
+        vec[2] = vec[2] * scale_factor
 
 
 def quaternion_multiply(quaternion1, quaternion0):

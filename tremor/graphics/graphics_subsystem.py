@@ -25,16 +25,17 @@ imgui_renderer = None
 _ui_state = None
 
 
-def _create_window(size, pos, title, hints, screen_size, monitor=None, share=None, ):
+def _create_window(size, pos, title, hints, screen_size, monitor, share=None, full_screen=False):
     if pos == "centered":
-        pos = (screen_size[0] / 2, screen_size[1] / 2)
+        posscreen = glfw.get_monitor_pos(monitor)
+        pos = (screen_size[0] / 2 + posscreen[0], screen_size[1] / 2 + posscreen[1])
     glfw.default_window_hints()
     for hint, value in hints.items():
         if hint in [glfw.COCOA_FRAME_NAME, glfw.X11_CLASS_NAME, glfw.X11_INSTANCE_NAME]:
             glfw.window_hint_string(hint, value)
         else:
             glfw.window_hint(hint, value)
-    win = glfw.create_window(size[0], size[1], title, monitor, share)
+    win = glfw.create_window(size[0], size[1], title, monitor if full_screen else None, share)
     glfw.set_window_pos(win, int(pos[0]), int(pos[1]))
     glfw.make_context_current(win)
     return win
@@ -55,9 +56,14 @@ def init():
     screen_utils.WIDTH = graphics_settings.getint("width")
     screen_utils.HEIGHT = graphics_settings.getint("height")
     screen_utils.MAX_FPS = graphics_settings.getint("max_fps")
-    screen = None
-    if graphics_settings.getboolean("full_screen"):
-        screen = glfw.get_primary_monitor()
+    monitors = glfw.get_monitors()
+    for monitor in monitors:
+        print(glfw.get_monitor_pos(monitor))
+    if graphics_settings.getint("screen") > len(monitors):
+        screen = monitors[0]
+    else:
+        screen = monitors[graphics_settings.getint("screen")]
+        print(glfw.get_monitor_pos(screen))
     hints = {
         glfw.DECORATED: glfw.TRUE,
         glfw.RESIZABLE: glfw.FALSE,
@@ -69,7 +75,8 @@ def init():
     }
     window = _create_window(size=(screen_utils.WIDTH, screen_utils.HEIGHT), pos="centered", title="Tremor",
                             monitor=screen, hints=hints,
-                            screen_size=glfw.get_monitor_physical_size(glfw.get_primary_monitor()))
+                            screen_size=glfw.get_monitor_physical_size(screen),
+                            full_screen=graphics_settings.getboolean("full_screen"))
     imgui_renderer = GlfwRenderer(window, attach_callbacks=False)
     glutil.log_capabilities()
     glEnable(GL_CULL_FACE)

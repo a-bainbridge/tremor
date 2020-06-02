@@ -31,3 +31,7 @@ class Entity:
 
     def is_renderable(self):
         return self.mesh is not None
+
+    def destroy(self):
+        if self.mesh is not None:
+            self.mesh.destroy()

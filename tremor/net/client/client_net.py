@@ -84,5 +84,5 @@ def send_message(message: str):
     _socket.chan.queue_command(MessageCommand("", message), False)
 
 
-def queue_update_cmd(viewangles):
-    _socket.chan.queue_command(PlayerUpdateCommand(0, 0, viewangles, 0, 0, 0))
+def queue_update_cmd(viewangles, fwd):
+    _socket.chan.queue_command(PlayerUpdateCommand(0, 0, viewangles, fwd, 0, 0))

@@ -1,7 +1,7 @@
 import numpy as np
 
 from tremor.math.geometry import Plane
-from tremor.math.vertex_math import norm_vec3
+from tremor.math.vertex_math import norm_vec3, magnitude_vec3
 
 
 def center_of_mass(points: np.array) -> np.array:
@@ -29,11 +29,43 @@ class Brush:
     def __init__(self, planes):
         self.planes = planes
 
-    def point_in_brush(self, point):
+    def point_in_brush(self, point, epsilon=0.0001):
         for p in self.planes:
-            if p.point_dist(point) > 0.00001:
+            if p.point_dist(point) > epsilon:
                 return False
         return True
+
+    def get_ray_intersection(self, ray_origin, ray_vector, distance):
+        plausible_intersection_points = []
+        for plane in self.planes:
+            point = plane.ray_intersect(ray_origin, ray_vector)
+            if point is not None:
+                plausible_intersection_points.append([point, plane])
+        candidate_points = []
+        outside_points = []
+        for plausible_point in plausible_intersection_points:
+            if magnitude_vec3(ray_origin - plausible_point[0]) > distance:
+                continue
+            if not self.point_in_brush(plausible_point[0]):
+                outside_points.append(plausible_point)
+                continue
+            candidate_points.append(plausible_point)
+        if len(candidate_points) == 1:
+            return candidate_points[0][0],\
+                   magnitude_vec3(ray_origin - candidate_points[0][0]) / distance,\
+                   candidate_points[0][1]
+        if len(candidate_points) == 0:
+            return None, None, None
+        closest_candidate = None
+        closest_dist = 9E99
+        plane = None
+        for p in candidate_points:
+            dist = magnitude_vec3(ray_origin - p[0])
+            if dist < closest_dist:
+                closest_dist = dist
+                closest_candidate = p[0]
+                plane = p[1]
+        return closest_candidate, closest_dist / distance, plane
 
     def get_vertices(self):
         all_points = []

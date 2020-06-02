@@ -22,6 +22,10 @@ class Mesh:
         self.elementBufID = 0
         self.elementInfo = None
 
+    def destroy(self):
+        # todo deallocate
+        pass
+
     def bind_vao(self):
         if self.vaoID is None:
             self.vaoID = GL.glGenVertexArrays(1)

@@ -29,6 +29,7 @@ def handle_player_update(cmd: PlayerUpdateCommand, cl: Connection):
     if cl.entity is not None:
         cl.entity.transform.set_rotation(matrix.quat_from_viewangles(cmd.look_angles))
         cl.entity.needs_update = True
+        cl.entity.desired_accel_vec = (cmd.forward_move/127) * np.array([np.cos(np.radians(cmd.look_angles[0])), 0, -np.sin(np.radians(cmd.look_angles[0]))])
 
 
 def handle_login_phase_2(cmd: LoginCommand, cl: Connection):
@@ -39,11 +40,12 @@ def handle_login_phase_2(cmd: LoginCommand, cl: Connection):
         idx += 1
     id, player_ent = current_scene.allocate_new_ent()
     player_ent.classname = "player"
-    player_ent.transform.set_translation(np.array([random.random() * 32, 128, random.random() * 32]))
-    player_ent.boundingbox = AABB(np.array([-16, -20, -16]), np.array([16, 20, 16]))
-    player_ent.flags = Entity.FLAG_PLAYER | Entity.FLAG_GRAVITY | Entity.FLAG_BOUNCY
+    player_ent.transform.set_translation(current_scene.find_ent_by_classname("info_player_start").transform.get_translation())
+    player_ent.boundingbox = AABB(np.array([-16, -15, -16]), np.array([16, 15, 16]))
+    player_ent.flags = Entity.FLAG_PLAYER | Entity.FLAG_GRAVITY
     broadcast_packet(EntityCreateCommand.from_ent(id, player_ent),True)
     cl.entity = player_ent
+    cl.entity_id = id
     cl.channel.queue_command(PlayerEntityAssignCommand(id), True)
     cl.state = ConnectionState.SPAWNED
 
@@ -62,6 +64,8 @@ def main():
     while not should_exit:
         start_time = time.time()
         server_net.poll_commands()
+        server_net.check_connections()
+        server_net.handle_errors()
         current_scene.move_entities(dt)
         idx = 0
         for ent in current_scene.entities:

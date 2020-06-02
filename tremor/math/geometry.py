@@ -21,6 +21,15 @@ class Plane:
     def point_dist(self, point: np.ndarray):
         return self.normal.dot(point - self.point)
 
+    def ray_intersect(self, ray_origin, ray_vector):
+        vdn = ray_vector.dot(self.normal)
+        if vdn >= 0:
+            return None
+        t = (-(ray_origin.dot(self.normal) - self.normal.dot(self.point))) / vdn
+        if t < 0:
+            return None
+        return ray_origin + t * ray_vector
+
     def intersect_point(self, p1: "Plane", p2: "Plane"):
         # n1 dot n2 cross n3 == 0, single point of intersection
         # n1 dot n2 cross n3 != 0, no points or infinite points of intersection
@@ -52,14 +61,6 @@ class AABB:
 
     def aabb_center_distance(self, other):
         return magnitude_vec3(self.center - other.center)
-
-    def check_against_plane(self, plane: Plane):
-        if plane.point_dist(self.min_extent) < 0:
-            return (0, plane.point_dist(self.min_extent))
-        for point in self.other_verts:
-            if plane.point_dist(point) < 0:
-                return True
-        return False
 
     # todo this is technically incorrect for sweeps
     def sit_against_plane(self, plane: Plane):

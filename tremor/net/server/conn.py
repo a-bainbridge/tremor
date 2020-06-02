@@ -9,5 +9,6 @@ class Connection:
         self.state = ConnectionState.DISCONNECTED
         self.channel = channel
         self.entity = None
+        self.entity_id = None
         self.connection_time = 0
         self.name = name

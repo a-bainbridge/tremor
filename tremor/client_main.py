@@ -70,9 +70,9 @@ def handle_ent_delete(cmd: EntityDeleteCommand):
     entity = current_scene.entities[cmd.entity_id]
     if entity is None:
         return
-        # entity.destroy()
+    entity.destroy()
     # todo what if the entity being destroyed is the player?
-    current_scene[cmd.entity_id] = None
+    current_scene.entities[cmd.entity_id] = None
 
 
 def handle_player_ent_assign(cmd: PlayerEntityAssignCommand):
@@ -130,7 +130,7 @@ def main():
                 current_scene.current_player_ent.transform.set_rotation(matrix.quat_from_viewangles(viewangles))
             current_scene.move_entities(dt)  # prediction
         if client_net._socket.connection_state == ConnectionState.CONNECTED:
-            client_net.queue_update_cmd(viewangles)
+            client_net.queue_update_cmd(viewangles, input_subsystem.move_inputs["forward"])
         client_net.write_outbound()
         graphics_subsystem.draw_scene(current_scene)
         graphics_subsystem.draw_ui()

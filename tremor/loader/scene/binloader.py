@@ -98,16 +98,16 @@ def load_scene_file(mapname, filename, make_geometry) -> Scene:
         ent.pop("classname")
         if "origin" in ent:
             split = str.split(ent["origin"], " ")
-            split[0] = float(split[0])
-            split[1] = float(split[1])
-            split[2] = float(split[2])
+            split[0] = float(split[1])
+            split[1] = float(split[2])
+            split[2] = -float(split[0])
             entity.transform.set_translation(np.array(split, dtype='float32'))
             ent.pop("origin")
         if "scale" in ent:
             split = str.split(ent["scale"], " ")
-            split[0] = float(split[0])
-            split[1] = float(split[1])
-            split[2] = float(split[2])
+            split[0] = float(split[1])
+            split[1] = float(split[2])
+            split[2] = float(split[0])
             entity.transform.set_scale(np.array(split, dtype='float32'))
             ent.pop("scale")
         if "rotation" in ent:
