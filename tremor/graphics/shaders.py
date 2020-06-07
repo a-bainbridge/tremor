@@ -371,7 +371,7 @@ class MeshProgram:
                 mat_tex = mat.get_mat_texture(inp.texture_type)
                 glUniform1i(
                     glGetUniformLocation(self.program, mat_tex.tex_type),
-                    mat_tex.texture.index
+                    mat_tex.texture.active_location
                 )
             else:
                 inp.set_value(mat.get_property(inp.name))

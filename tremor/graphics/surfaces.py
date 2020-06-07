@@ -6,37 +6,29 @@ import pygltflib
 
 class TextureUnit:
     # setup:
-    #   - bind to gl context
-    #   - set active texture
-    #      -> setup the texture info
-    #   - set correct uniform per shader (this changes nothing internally within this object)
-    # render: don't do anything
+    #  - create the texture
+    #  - activate slot 0
+    #  - bind texture to slot, depending on type
 
     # preferred 'constructor' method
 
-    global_index = 1  # todo: change this
-
     @staticmethod
-    def generate_texture(index=0) -> 'TextureUnit':
-        if index == 0:
-            index = TextureUnit.global_index
-            TextureUnit.global_index += 1
-        return TextureUnit(index, gl.glGenTextures(1))
+    def generate_texture() -> 'TextureUnit':
+        return TextureUnit(gl.glGenTextures(1))
 
-    def __init__(self, index: int, texture_unit):
-        self.index = index
-        self.unit = texture_unit
+    def __init__(self, handle):
+        self.handle = handle
+        self.active_location = 0
 
-    def bad_bind(self, target=gl.GL_TEXTURE_2D):
+    def active (self):
+        gl.glActiveTexture(gl.GL_TEXTURE0 + self.active_location)
+
+    def bind (self, target:gl.GLenum):
+        gl.glBindTexture(target, self.handle)
+
+    def setup_texture2D(self, data, width, height, img_format, sampler: pygltflib.Sampler, type=gl.GL_UNSIGNED_BYTE):
         self.active()
-        gl.glBindTexture(target, self.unit)
-
-    def active(self):
-        gl.glActiveTexture(gl.GL_TEXTURE0 + self.index)
-
-    def bind_tex2d(self, data, width, height, img_format, sampler: pygltflib.Sampler, type=gl.GL_UNSIGNED_BYTE):
-        self.active()
-        gl.glBindTexture(gl.GL_TEXTURE_2D, self.unit)
+        self.bind(gl.GL_TEXTURE_2D)
 
         gl.glTexImage2D(
             gl.GL_TEXTURE_2D,
@@ -80,7 +72,7 @@ class Material:
         mat.set_property('emissiveFactor', gltf_mat.emissiveFactor)
         return mat
 
-    def __init__(self, name: str = 'unnamed', flags: List[str] = [], **kwargs):
+    def __init__(self, name: str = 'unnamed', flags: List[str] = (), **kwargs):
         self.name = name
 
         # the textures
@@ -92,7 +84,7 @@ class Material:
         self._texture_flags = []
         self._do_texture_flags()
         self._properties: Dict[str, any] = {}
-        self._flags: List[str] = flags
+        self._flags: List[str] = list(flags)
 
         for k, v in kwargs.items():
             self.set_property(k, v)
@@ -148,6 +140,18 @@ class Material:
 
     def get_all_textures(self) -> List[TextureUnit]:
         return [tex.texture for tex in self.get_all_mat_textures()]
+
+    def bind_textures(self, offset:int=0) -> int: # bind textures starting at the offset, and return the index of the NEXT unused texture slot
+        textures = self.get_all_textures()
+        # if len(textures) + offset >= gl.glGetInteger(gl.GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS):
+        #     raise Exception('Number of textures exceeded maximum allowed by OpenGL')
+        index = offset
+        for t in textures:
+            t.active_location = index
+            t.active()
+            t.bind(gl.GL_TEXTURE_2D)
+            index += 1
+        return index
 
     def _do_texture_flags(self):
         self._texture_flags = []

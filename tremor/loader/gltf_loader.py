@@ -270,7 +270,7 @@ def load_gltf_image(gltf_image: pygltflib.Image, data, sampler: pygltflib.Sample
     # mag_filter = accessor_sampler_type(sampler.magFilter)
     # clamp_mode = accessor_sampler_type(sampler.wrapS)
     tex = TextureUnit.generate_texture()
-    tex.bind_tex2d(data, width=img.width, height=img.height, img_format=mode, sampler=sampler)
+    tex.setup_texture2D(data, width=img.width, height=img.height, img_format=mode, sampler=sampler)
     # tex = Texture(data, gltf_image.name, width=img.width, height=img.height, img_format=mode, min_filter=min_filter,
     #               mag_filter=mag_filter, clamp_mode=clamp_mode)
     return tex
