@@ -195,6 +195,7 @@ class ShaderInput:
         ifndef_expr = regex.compile(r'#ifndef ([\w\d_]+)')
         else_expr = regex.compile(r'#else')
         endif_expr = regex.compile(r'#endif')
+        type_is_texture_expr = regex.compile(r'sampler(2D|3D|Cube)') # https://www.khronos.org/opengl/wiki/Sampler_(GLSL)
         lines = shader_source.split('\n')
         uniforms = []
         u_dependencies = []
@@ -216,7 +217,7 @@ class ShaderInput:
                 u_dependencies.append(','.join([d[0] for d in depend_stack if d[1]]))
         inputs = []
         i_dependencies = []
-        find_input = regex.compile(r'uniform\s(\w+)\s(\w+);//mat')  # (?::([\w\d,_]+))? for dependencies
+        find_input = regex.compile(r'uniform\s(\w+)\s(\w+);//mat')
 
         index = -1
         for u in uniforms:
@@ -244,13 +245,13 @@ class ShaderInput:
                 default_value = u_type_default_value_args[typ]
             else:
                 default_value = [0]
-                if typ == 'sampler2D':
+                if type_is_texture_expr.match(typ) is not None:
                     is_texture = True
             shader_inputs.append(ShaderInput(name, typ, default_args, default_value, is_texture, depend))
         return shader_inputs
 
-    def __init__(self, name: str, u_type='float', default_args=[], value: list = [0.0], is_texture=False,
-                 dependencies: List[str] = []):
+    def __init__(self, name: str, u_type='float', default_args=(), value: tuple = (0.0,), is_texture=False,
+                 dependencies: List[str] = ()):
         self.name = name
         self.u_type = u_type
         self.default_args = default_args  # arguments for a glUniform call that precede the actual value
@@ -278,7 +279,7 @@ class ShaderInput:
     value = property(get_value, set_value)
 
     def get_uniform_args(self) -> list:
-        return self.default_args + self._value
+        return list(self.default_args + self._value)
 
     """
     If one input is defined in a vertex shader, and one is defined in a fragment shader,

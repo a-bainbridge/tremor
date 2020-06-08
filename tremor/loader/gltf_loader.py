@@ -187,11 +187,11 @@ def load_gltf(filepath) -> Mesh:
             normal = mat.normalTexture
             metallic = mat.pbrMetallicRoughness.metallicRoughnessTexture
             if color is not None:
-                mesh.material.set_texture(get_texture(color.index), MaterialTexture.COLOR)
+                mesh.material.set_texture(get_texture(color.index), MaterialTexture.COLOR, GL.GL_TEXTURE_2D)
             if normal is not None:
-                mesh.material.set_texture(get_texture(normal.index), MaterialTexture.NORMAL)
+                mesh.material.set_texture(get_texture(normal.index), MaterialTexture.NORMAL, GL.GL_TEXTURE_2D)
             if metallic is not None:
-                mesh.material.set_texture(get_texture(metallic.index), MaterialTexture.METALLIC)
+                mesh.material.set_texture(get_texture(metallic.index), MaterialTexture.METALLIC, GL.GL_TEXTURE_2D)
         if mesh.material is None:
             mesh.set_shader(shaders.get_default_program())
             mesh.material = mesh.program.create_material()
