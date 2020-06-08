@@ -327,7 +327,7 @@ class MeshProgram:
             name=name,
             loc=None,
             values=[],
-            u_type=ShaderStructDef(name, primitive=True, u_type=u_type)
+            u_type=ShaderStructDef(name, primitive=True, primitive_type=u_type, is_list=False)
         )
 
     def update_uniform(self, name: str, values: list = None):
