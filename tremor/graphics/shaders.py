@@ -1,4 +1,5 @@
 import configparser
+import copy
 import re as regex
 from typing import List
 
@@ -249,12 +250,12 @@ class ShaderInput:
             shader_inputs.append(ShaderInput(name, typ, default_args, default_value, is_texture, depend))
         return shader_inputs
 
-    def __init__(self, name: str, u_type='float', default_args=[], value: list = [0.0], is_texture=False,
-                 dependencies: List[str] = []):
+    def __init__(self, name: str, u_type='float', default_args=(), value: list = (0.0,), is_texture=False,
+                 dependencies: List[str] = ()):
         self.name = name
         self.u_type = u_type
         self.default_args = default_args  # arguments for a glUniform call that precede the actual value
-        self._value = value  # the actual value of the uniform
+        self._value = list(value)  # the actual value of the uniform
         self.is_texture = is_texture  # in the case where this is true, the name is the same as the MaterialTexture type flag.
         # @see: MaterialTexture.COLOR for example. If it isn't, it will throw a KeyError in MeshShader
         self.dependencies = dependencies  # dependencies are the #define directives that are required for this material property.
@@ -330,10 +331,18 @@ class MeshProgram:
             u_type=ShaderStructDef(name, primitive=True, primitive_type=u_type, is_list=False)
         )
 
+    def add_uniform (self, uniform:Uniform):
+        self.uniforms[uniform.name] = uniform
+
     def update_uniform(self, name: str, values: list = None):
         glUseProgram(self.program)
         # self.check_is_uniform(name)
         self.uniforms[name].call_uniform_func(values)
+
+    def get_uniform (self, name:str) -> Uniform:
+        if not name in self.uniforms.keys():
+            raise Exception(f'Unknown {name} in program {self.name}')
+        return self.uniforms[name]
 
     def init_uniforms(self):
         for n, u in self.uniforms.items():

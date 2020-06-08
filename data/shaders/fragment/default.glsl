@@ -23,14 +23,22 @@ uniform sampler2D texMetallic;//mat
 #endif
 
 //globals
-uniform vec3 light_pos;
+//uniform vec3 light_pos;
 uniform float time;
+
+
+struct Light {
+    vec3 position;
+    vec3 color;
+    float intensity;
+};
+uniform Light light = {vec3(0.), vec3(1., 0., 0.), 100.};
 
 const vec3 ambient = vec3(0.7);
 
 const vec3 look = vec3(0., 0., 1.);
-const vec3 light_col = vec3(1.);
-const float light_strength = 1.0;
+//const vec3 light_col = vec3(1.);
+//const float light_strength = 1.0;
 
 //rotate vector
 vec3 qrot(vec4 q, vec3 v) {
@@ -87,9 +95,9 @@ void main()
     diffuse_weight = 0.4;
     specular_weight = 0.6;
     #endif
-    vec3 light_dir = normalize(light_pos - fposition);
+    vec3 light_dir = normalize(light.position - fposition);
     float diffuse = max(dot(light_dir, normal), 0.);
     float specular = pow(max(dot(look, -reflect(normal, light_dir)), 0.), 16.);
-    col += (diffuse * diffuse_weight + specular * specular_weight) * light_col * light_strength;
+    col += (diffuse * diffuse_weight + specular * specular_weight) * light.color * light.intensity;
     outputColor = vec4(col, 1.0);//alpha_depth_func(cameraPosition.z));
 }

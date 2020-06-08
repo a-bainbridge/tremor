@@ -6,6 +6,7 @@ import glm
 from tremor.graphics.ui import menus, hud
 from tremor.graphics.ui.state import UIState
 from tremor.math.transform import Transform
+from tremor.math.vertex_math import norm_vec3
 from tremor.net.client import client_net
 
 OpenGL.USE_ACCELERATE = False
@@ -130,8 +131,12 @@ def draw_scene(scene):
 
     update_all_uniform('time', [framecount / screen_utils.MAX_FPS])  # seconds
 
-    light_pos = [np.sin(framecount * 0.01) * 5, np.cos(framecount * 0.01) * 5, np.cos(framecount * 0.001)]
-    update_all_uniform('light_pos', light_pos)
+    light_pos = [np.sin(framecount * 0.01) * 50, np.cos(framecount * 0.01) * 50, np.cos(framecount * 0.001)*50]
+    # update_all_uniform('light_pos', light_pos)
+    BAD_set_all_uniform_by_property_chain('light', 'position', light_pos)
+    BAD_set_all_uniform_by_property_chain('light', 'color', [1, 1, 1])
+    BAD_set_all_uniform_by_property_chain('light', 'intensity', [np.sin(framecount*0.05)*200])
+
 
     scene.bind_scene_vao()
     for element in scene.entities:
@@ -214,15 +219,22 @@ def request_close():
 
 def _create_uniforms():
     # Matricies
-    add_uniform_to_all('modelViewMatrix', 'mat4')
-    add_uniform_to_all('projectionMatrix', 'mat4')
-    add_uniform_to_all('viewMatrix', 'mat4')
+    add_primitive_uniform_to_all('modelViewMatrix', 'mat4')
+    add_primitive_uniform_to_all('projectionMatrix', 'mat4')
+    add_primitive_uniform_to_all('viewMatrix', 'mat4')
 
     # env
-    add_uniform_to_all('time', 'float')
+    add_primitive_uniform_to_all('time', 'float')
 
     # other
-    add_uniform_to_all('light_pos', 'vec3')  # todo: ba
+    add_primitive_uniform_to_all('light_pos', 'vec3')  # todo: ba
+
+    light_def = ShaderStructDef('Light', primitive=False, is_list=False)
+    light_def.add_primitive_field('position', 'vec3')
+    light_def.add_primitive_field('color', 'vec3')
+    light_def.add_primitive_field('intensity', 'float')
+
+    add_uniform_to_all(Uniform.as_struct('light', light_def))
 
 
 def error_callback(error, description):
