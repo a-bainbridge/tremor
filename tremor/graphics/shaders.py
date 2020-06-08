@@ -317,9 +317,9 @@ class MeshProgram:
     def add_uniforms_from_inputs(self):
         for i in self.inputs:
             if not self.check_is_uniform(i.name) and not i.is_texture:
-                self.add_uniform(i.name, i.u_type)
+                self.add_primitive_uniform(i.name, i.u_type)
 
-    def add_uniform(self, name: str, u_type: str):
+    def add_primitive_uniform(self, name: str, u_type: str):
         if not u_type in u_types.keys():
             raise Exception(f'uniform type {u_type} is not a valid type')
 
@@ -327,18 +327,17 @@ class MeshProgram:
             name=name,
             loc=None,
             values=[],
-            u_type=u_type
+            u_type=ShaderStructDef(name, primitive=True, u_type=u_type)
         )
 
     def update_uniform(self, name: str, values: list = None):
         glUseProgram(self.program)
-        self.check_is_uniform(name)
+        # self.check_is_uniform(name)
         self.uniforms[name].call_uniform_func(values)
 
     def init_uniforms(self):
-        glUseProgram(self.program)
         for n, u in self.uniforms.items():
-            u.loc = glGetUniformLocation(self.program, u.name)
+            u.set_location(self.program)
 
     def check_is_uniform(self, name: str) -> bool:  # not a hard stop, but warning
         if not name in self.uniforms:
@@ -347,11 +346,11 @@ class MeshProgram:
         return True
 
     def set_uniform_values(self, name: str, values: list):
-        self.check_is_uniform(name)
+        # self.check_is_uniform(name)
         self.uniforms[name].values = values
 
     def get_uniform_values(self, name: str):
-        if not self.check_is_uniform(name): print(f'{name} is not a uniform!')
+        # if not self.check_is_uniform(name): print(f'{name} is not a uniform!')
         return self.uniforms[name].values
 
     # get a material with relevant properties for this shader
