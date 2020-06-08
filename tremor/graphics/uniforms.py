@@ -80,25 +80,30 @@ class Uniform:
     """
 
     @staticmethod
-    def as_primitive(name: str, u_type: str) -> 'Uniform':
-        return Uniform(name, None, [], ShaderStructDef.as_primitive(name, u_type))
+    def as_primitive(name: str, u_type: str, localname='') -> 'Uniform':
+        return Uniform(name, None, [], ShaderStructDef.as_primitive(name, u_type), local_name=localname)
 
     @staticmethod
     def as_struct(name:str, u_type: 'ShaderStructDef') -> 'Uniform':
         return Uniform(name, None, [], u_type)
 
-    def __init__(self, name: str, loc, values: list, u_type: 'ShaderStructDef'):
+    def __init__(self, name: str, loc, values: list, u_type: 'ShaderStructDef', local_name=''):
+
         self.name = name  # this is the instance name if this is the root (surface) object
-        # If it is not the root object, self.name and self.u_type.name are interchangeable
-        # otherwise, they must be different (it would look something like `struct Rect { . . . } Rect;`)
+            # If it is not the root object, self.name and self.u_type.name are interchangeable
+            # assume `struct Rect { vec2 corner; vec2 size; };` for example purposes
+            # otherwise, they must be different (it would look something like `struct Rect { . . . } Rect;`)
+
+        self.local_name:str = local_name # for the root, this is "" because it's irrelevant.
+            # This is only useful for accessing uniforms
+            # for example, (using Rect example), given `Rect yeet = Rect(vec2(0.), vec2(1.));`,
+            # self.name for the `yeet.corner` property would be "yeet.corner", while self.local_name SHOULD be "corner"
         self._loc = loc
         self.values: list = values
         self.u_type: 'ShaderStructDef' = u_type
-        self.fields: List[Uniform] = []
-        self.is_list = False
-        self.list_children: List[Uniform] = []
-        if not self.u_type.primitive:
-            self.fields = u_type.get_uniforms()
+        self.fields:'ShaderStruct' = None
+        if not self.u_type.is_simple_primitive():
+            self.fields = u_type.get_struct()
 
     def _get_uniform_func(self) -> Callable:
         return u_types[self.u_type.primitive_type]
@@ -132,13 +137,13 @@ class ShaderArrayDef:
         self.u_type = u_type
         self.length = length
 
-    def get_uniforms(self) -> List[Uniform]:
+    def get_struct(self) -> List[Uniform]:
         us = []
         for i in range(self.length):
             if self.u_type.is_simple_primitive():
                 us.append(Uniform(f'{self.name}[{i}]', loc=None, values=[], u_type=self.u_type))
             else:
-                us += self.u_type.get_uniforms()
+                us += self.u_type.get_struct()
         return us
 
 
@@ -170,55 +175,89 @@ class ShaderStructDef:
     def set_field(self, field_name, field_type: 'ShaderStructDef'):
         self._fields[field_name] = field_type
 
-    def _get_list_child(self) -> 'ShaderStructDef':  # NOTE: lists cannot be contained in lists (thank god)
+    def _get_list_child_instance(self) -> 'ShaderStructDef':  # NOTE: lists cannot be contained in lists (thank god)
         s = ShaderStructDef(self.name, primitive=self.primitive, is_list=False, primitive_type=self.primitive_type)
         s.set_fields_from_dict(s._fields)
         return s
 
-    def _get_uniforms(self, name: str) -> List[Uniform]:
-        # NOTE: this is a STRICTLY 1D LIST
-        l = []
+    def _get_struct(self, name: str) -> 'ShaderStruct':
+        uniforms = []
+        children = []
         if self.is_list:
             for i in range(self.list_length):
                 child_name = f'{name}.[{i}]'
                 if self.primitive:
-                    l.append(Uniform.as_primitive(child_name, self.primitive_type))
+                    uniforms.append(Uniform.as_primitive(child_name, self.primitive_type)) # does not require local name; is list item
                 else:
-                    l += self._get_list_child()._get_uniforms(child_name)
+                    children.append(self._get_list_child_instance()._get_struct(child_name))
         else:
             for f, value in self._fields.items():
                 child_name = '%s.%s'%(name, value.name)
                 if value.is_simple_primitive():
-                    l.append(Uniform(
+                    uniforms.append(Uniform(
                         child_name,  # end of recursion
                         loc=None,
                         values=[],
-                        u_type=value
+                        u_type=value,
+                        local_name=value.name
                     ))
                 else:
-                    l += value._get_uniforms(child_name)  # recursion continues,
-        return l
+                    children.append(value._get_struct(child_name))  # recursion continues,
+        return ShaderStruct(name, uniforms, children, is_list=self.is_list)
 
-    def get_uniforms(self) -> List[Uniform]:
+    def get_struct(self) -> 'ShaderStruct':
         if self.is_simple_primitive():
             raise Exception("Can't generate a struct for a primitive field!")
-        return self._get_uniforms(self.name)
+        return self._get_struct(self.name)
 
     def is_simple_primitive (self) -> bool:
         return self.primitive and not self.is_list
 
 
 class ShaderStruct:
-    def __init__(self, instance_name: str, uniforms: List[Uniform]):
+    def __init__(self, instance_name: str, uniforms: List[Uniform], children: List['ShaderStruct'], is_list:bool):
+        # self.uniforms and self.children are both children of this instance, only types are different
         self.instance_name = instance_name
-        self.uniforms = uniforms
-        for u in self.uniforms:
-            u.name = self.instance_name + u.name
+        self.children:List['ShaderStruct'] = children
+        self.uniforms:List[Uniform] = uniforms
+        self._uniform_dict:Dict[str, Uniform] = {}
+        self._children_dict:Dict[str, 'ShaderStruct'] = {}
+        self.is_list = is_list
+        self.list_has_children = len(children) > 0 and is_list
+        if not is_list:
+            # then it's unordered, and these dicts need to be filled
+            for u in self.uniforms:
+                if u.local_name == '':
+                    raise Exception(f'{u.name} does not have a local name!')
+                self._uniform_dict[u.local_name] = u
+            for c in self.children:
+                self._children_dict[c.instance_name] = c
+    def get_list_item (self, index:int):
+        if self.list_has_children:
+            return self.get_list_struct(index)
+        else:
+            return self.get_list_uniform(index)
+    def get_list_uniform (self, index:int) -> Uniform:
+        return self.uniforms[index]
+    def get_list_struct (self, index:int) -> 'ShaderStruct':
+        return self.children[index]
+    def get_uniform (self, u_name:str) -> Uniform:
+        if self.is_list:
+            raise Exception(f"{self.instance_name} is not a struct containing unordered uniforms.")
+        if u_name in self._uniform_dict.keys():
+            return self._uniform_dict[u_name]
+        raise Exception(f"There is no uniform with the local name {u_name}")
 
-# class StructUniform(Uniform):
-#     def __init__(self, name: str, struct_factory:ShaderStructFactory):
-#         super().__init__(name)
-#         self.name = name
-#         self.struct_def:ShaderStruct = struct_factory.generate_struct()
-#
-#     def call_uniform_func(self):
+    def get_struct (self, struct_name:str) -> 'ShaderStruct':
+        if self.is_list:
+            raise Exception(f"{self.instance_name} is not a struct containing unordered structs.")
+        if struct_name in self._children_dict:
+            return self._children_dict[struct_name]
+        raise Exception(f"There is no internal struct property called {struct_name}")
+
+    def get_property (self, property_name:str):
+        if property_name in self._uniform_dict.keys():
+            return self._uniform_dict[property_name]
+        if property_name in self._children_dict.keys():
+            return self._children_dict[property_name]
+        raise Exception(f"There is no internal property called {property_name}")
