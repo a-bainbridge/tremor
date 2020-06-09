@@ -35,10 +35,10 @@ class Brush:
                 return False
         return True
 
-    def get_ray_intersection(self, ray_origin, ray_vector, distance):
+    def get_ray_intersection(self, ray_origin, ray_vector, distance, epsilon=0):
         plausible_intersection_points = []
         for plane in self.planes:
-            point = plane.ray_intersect(ray_origin, ray_vector)
+            point = plane.ray_intersect(ray_origin, ray_vector, epsilon)
             if point is not None:
                 plausible_intersection_points.append([point, plane])
         candidate_points = []
@@ -46,7 +46,7 @@ class Brush:
         for plausible_point in plausible_intersection_points:
             if magnitude_vec3(ray_origin - plausible_point[0]) > distance:
                 continue
-            if not self.point_in_brush(plausible_point[0]):
+            if not self.point_in_brush(plausible_point[0], 0.0001 + epsilon):
                 outside_points.append(plausible_point)
                 continue
             candidate_points.append(plausible_point)

@@ -202,12 +202,14 @@ def main(args):
     parse_time = time.time()
     ents = parse_map_file(args.map)
     contained_point = None
+    worldspawn_ent = None
     for ent in ents:
         if ent["classname"] == "info_player_start":
             sp = ent["origin"].split(" ")
             contained_point = np.array([float(sp[1]), float(sp[2]), -float(sp[0])])
             print(contained_point)
-            break
+        if ent["classname"] == "worldspawn":
+            worldspawn_ent = ent
     parse_time = time.time() - parse_time
     raw_verts = []
     raw_faces = []

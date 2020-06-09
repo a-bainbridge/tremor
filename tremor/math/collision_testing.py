@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List
 
 import numpy as np
@@ -8,6 +9,7 @@ from tremor.math.vertex_math import norm_vec3, magnitude_vec3
 
 world: List[Brush] = []
 
+EPSILON = 1/32
 
 class TraceResult:
     def __init__(self, collided: bool, end_point: np.ndarray, path_frac: float, plane_hit: Plane, brush_hit: Brush,
@@ -33,7 +35,7 @@ def trace(start_point: np.ndarray, end_point: np.ndarray, aabb: AABB):
     intersected_points = []
     for brush in world:
         for point in points:
-            intersection, span, plane = brush.get_ray_intersection(point, direction, dist)
+            intersection, span, plane = brush.get_ray_intersection(point, direction, dist, EPSILON)
             if intersection is None:
                 continue
             intersected_points.append([intersection, span, brush, plane])
@@ -65,3 +67,4 @@ def clamp_velocity(velocity: np.ndarray, trace_res: TraceResult):
     if new_mag > old_mag > 0 and new_mag > 0:
         new = new / new_mag * old_mag
     return new
+    return velocity

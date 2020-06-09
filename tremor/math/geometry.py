@@ -21,20 +21,21 @@ class Plane:
     def point_dist(self, point: np.ndarray):
         return self.normal.dot(point - self.point)
 
-    def ray_intersect(self, ray_origin, ray_vector):
+    def ray_intersect(self, ray_origin, ray_vector, epsilon=0):
         vdn = ray_vector.dot(self.normal)
         if vdn >= 0:
             return None
         t = (-(ray_origin.dot(self.normal) - self.normal.dot(self.point))) / vdn
         if t < 0:
             return None
+        t -= epsilon
         return ray_origin + t * ray_vector
 
-    def intersect_point(self, p1: "Plane", p2: "Plane"):
+    def intersect_point(self, p1: "Plane", p2: "Plane", epsilon=0.0000002):
         # n1 dot n2 cross n3 == 0, single point of intersection
         # n1 dot n2 cross n3 != 0, no points or infinite points of intersection
         a = p2.normal.dot(np.cross(self.normal, p1.normal))
-        if abs(a) < 0.0000002:
+        if abs(a) < epsilon:
             # print("no single point intersection")
             return None
         A = np.array([

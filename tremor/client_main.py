@@ -128,6 +128,7 @@ def main():
         if current_scene is not None:
             if current_scene.current_player_ent is not None:
                 current_scene.current_player_ent.transform.set_rotation(matrix.quat_from_viewangles(viewangles))
+                current_scene.current_player_ent.desired_accel_vec = input_subsystem.move_inputs["forward"] * np.array([np.cos(np.radians(viewangles[0])), 0, -np.sin(np.radians(viewangles[0]))])
             current_scene.move_entities(dt)  # prediction
         if client_net._socket.connection_state == ConnectionState.CONNECTED:
             client_net.queue_update_cmd(viewangles, input_subsystem.move_inputs["forward"])
