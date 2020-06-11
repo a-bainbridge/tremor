@@ -314,6 +314,8 @@ class MeshProgram:
         status = glGetProgramiv(self.program, GL_LINK_STATUS)
         if status == GL_FALSE:
             print("Linker failure: " + str(glGetProgramInfoLog(self.program)))
+    def use (self):
+        glUseProgram(self.program)
 
     def add_uniforms_from_inputs(self):
         for i in self.inputs:

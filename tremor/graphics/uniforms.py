@@ -78,9 +78,13 @@ def BAD_set_all_uniform_by_property_chain (name:str, property_chain:str, values:
         u = prog.get_uniform(name)
         index = 0
         while index < len(props):
-            u = u.get_fields().get_property(props[index])
+            if type(u) == Uniform:
+                u = u.get_fields().get_property(props[index])
+            else:
+                u = u.get_property(props[index])
             index += 1
         u.set_values(values)
+        prog.use()
         u.call_uniform_func()
 
 def init_all_uniforms():
@@ -178,16 +182,16 @@ class ShaderStructDef:
 
     @staticmethod
     def as_primitive(name: str, u_type: str) -> 'ShaderStructDef':
-        return ShaderStructDef(name=name, primitive=True, primitive_type=u_type, is_list=False)
+        return ShaderStructDef(type_name=name, primitive=True, primitive_type=u_type, is_list=False)
 
     @staticmethod
     def as_primitive_list(name: str, u_type: str, length: int) -> 'ShaderStructDef':
-        return ShaderStructDef(name=name, primitive=True, is_list=True, list_length=length, primitive_type=u_type)
+        return ShaderStructDef(type_name=name, primitive=True, is_list=True, list_length=length, primitive_type=u_type)
 
-    def __init__(self, name: str, primitive: bool, is_list: bool, list_length: int = None, primitive_type: str = None,
+    def __init__(self, type_name: str, primitive: bool, is_list: bool, list_length: int = None, primitive_type: str = None,
                  **kwargs):
         # NOTE: just because self.primitive = True doesn't mean it's not a LIST
-        self.name = name
+        self.type_name = type_name
         self.primitive = primitive
         self.primitive_type: str = primitive_type
         self.is_list = is_list  # if it is a list, then it is a list containing THIS type
@@ -202,17 +206,17 @@ class ShaderStructDef:
     def set_field(self, field_name, field_type: 'ShaderStructDef'):
         self._fields[field_name] = field_type
 
-    def add_primitive_field(self, name:str, u_type:str):
+    def set_primitive_field(self, name:str, u_type:str):
         self.set_field(name, ShaderStructDef.as_primitive(name, u_type))
 
     def _get_list_child_instance(self) -> 'ShaderStructDef':  # NOTE: lists cannot be contained in lists (thank god)
-        s = ShaderStructDef(self.name, primitive=self.primitive, is_list=False, primitive_type=self.primitive_type)
+        s = ShaderStructDef(self.type_name, primitive=self.primitive, is_list=False, primitive_type=self.primitive_type)
         s.set_fields_from_dict(s._fields)
         return s
 
     def _get_struct(self, name: str) -> 'ShaderStruct':
-        uniforms = []
-        children = []
+        uniforms:List[Uniform] = []
+        children:List['ShaderStruct'] = []
         if self.is_list:
             for i in range(self.list_length):
                 child_name = f'{name}.[{i}]'
@@ -223,17 +227,17 @@ class ShaderStructDef:
                     children.append(self._get_list_child_instance()._get_struct(child_name))
         else:
             for f, value in self._fields.items():
-                child_name = '%s.%s' % (name, value.name)
+                child_name = '%s.%s' % (name, f)
                 if value.is_simple_primitive():
                     uniforms.append(Uniform(
                         child_name,  # end of recursion
                         loc=None,
                         values=[],
                         u_type=value,
-                        local_name=value.name
+                        local_name=value.type_name
                     ))
                 else:
-                    children.append(value._get_struct(child_name))  # recursion continues,
+                    children.append(value._get_struct(f))  # recursion continues,
         return ShaderStruct(name, uniforms, children, is_list=self.is_list)
 
     def get_struct(self, name) -> 'ShaderStruct':
@@ -290,21 +294,21 @@ class ShaderStruct:
             raise Exception(f"{self.instance_name} is not a struct containing unordered uniforms.")
         if u_name in self._uniform_dict.keys():
             return self._uniform_dict[u_name]
-        raise Exception(f"There is no uniform with the local name {u_name}")
+        raise Exception(f"There is no uniform with the local name '{u_name}'")
 
     def get_struct(self, struct_name: str) -> 'ShaderStruct':
         if self.is_list:
             raise Exception(f"{self.instance_name} is not a struct containing unordered structs.")
         if struct_name in self._children_dict:
             return self._children_dict[struct_name]
-        raise Exception(f"There is no internal struct property called {struct_name}")
+        raise Exception(f"There is no internal struct property called '{struct_name}'")
 
     def get_property(self, property_name: str):
         if property_name in self._uniform_dict.keys():
             return self._uniform_dict[property_name]
         if property_name in self._children_dict.keys():
             return self._children_dict[property_name]
-        raise Exception(f"There is no internal property called {property_name}")
+        raise Exception(f"There is no internal property called '{property_name}'")
 
     def recursive_uniform_function_call(self, func: Callable, args: tuple):
         for u in self.uniforms:

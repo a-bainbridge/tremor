@@ -134,8 +134,9 @@ def draw_scene(scene):
     light_pos = [np.sin(framecount * 0.01) * 50, np.cos(framecount * 0.01) * 50, np.cos(framecount * 0.001)*50]
     # update_all_uniform('light_pos', light_pos)
     BAD_set_all_uniform_by_property_chain('light', 'position', light_pos)
-    BAD_set_all_uniform_by_property_chain('light', 'color', [1, 1, 1])
-    BAD_set_all_uniform_by_property_chain('light', 'intensity', [np.sin(framecount*0.05)*200])
+    BAD_set_all_uniform_by_property_chain('light', 'color', [1, 0, 1])
+    BAD_set_all_uniform_by_property_chain('light', 'intensity', [1.0])
+    BAD_set_all_uniform_by_property_chain('light', 'propogation.factor', [8+8*np.sin(framecount*0.05)])
 
 
     scene.bind_scene_vao()
@@ -229,10 +230,14 @@ def _create_uniforms():
     # other
     add_primitive_uniform_to_all('light_pos', 'vec3')  # todo: ba
 
+    light_prop_def = ShaderStructDef('LightPropogation', primitive=False, is_list=False)
+    light_prop_def.set_primitive_field('cubic', 'bool')
+    light_prop_def.set_primitive_field('factor', 'float')
     light_def = ShaderStructDef('Light', primitive=False, is_list=False)
-    light_def.add_primitive_field('position', 'vec3')
-    light_def.add_primitive_field('color', 'vec3')
-    light_def.add_primitive_field('intensity', 'float')
+    light_def.set_primitive_field('position', 'vec3')
+    light_def.set_primitive_field('color', 'vec3')
+    light_def.set_primitive_field('intensity', 'float')
+    light_def.set_field('propogation', light_prop_def)
 
     add_uniform_to_all(Uniform.as_struct('light', light_def))
 
