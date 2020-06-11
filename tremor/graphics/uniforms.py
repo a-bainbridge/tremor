@@ -74,14 +74,21 @@ def update_all_uniform(name: str, values: list):
 
 def BAD_set_all_uniform_by_property_chain (name:str, property_chain:str, values:list):
     props = property_chain.split('.')
+    p_i = -1
+    for p in props:
+        p_i += 1
+        try:
+            i = int(p)
+            props[p_i] = i
+        except: continue
     for prog in shaders.get_programs():
         u = prog.get_uniform(name)
         index = 0
         while index < len(props):
+            s = u
             if type(u) == Uniform:
-                u = u.get_fields().get_property(props[index])
-            else:
-                u = u.get_property(props[index])
+                s = u.get_fields()
+            u = s[props[index]]
             index += 1
         u.set_values(values)
         prog.use()
@@ -147,6 +154,8 @@ class Uniform:
     def set_location(self, program: GLuint):
         if self.u_type.is_simple_primitive():
             self._loc = glGetUniformLocation(program, self.name)
+            # if self._loc == -1:
+            #     print(f"WARNING: missing location for '{self.name}'")
         else:
             self.fields.recursive_uniform_function_call(Uniform.set_location, (program,))
 
@@ -200,7 +209,7 @@ class ShaderStructDef:
         self.set_fields_from_dict(kwargs)
 
     def set_fields_from_dict(self, dictionary: dict):
-        for k, v in dictionary:
+        for k, v in dictionary.items():
             self.set_field(k, v)
 
     def set_field(self, field_name, field_type: 'ShaderStructDef'):
@@ -209,9 +218,9 @@ class ShaderStructDef:
     def set_primitive_field(self, name:str, u_type:str):
         self.set_field(name, ShaderStructDef.as_primitive(name, u_type))
 
-    def _get_list_child_instance(self) -> 'ShaderStructDef':  # NOTE: lists cannot be contained in lists (thank god)
+    def _get_list_child_instance(self) -> 'ShaderStructDef':  # NOTE: lists cannot be contained in list
         s = ShaderStructDef(self.type_name, primitive=self.primitive, is_list=False, primitive_type=self.primitive_type)
-        s.set_fields_from_dict(s._fields)
+        s.set_fields_from_dict(self._fields)
         return s
 
     def _get_struct(self, name: str) -> 'ShaderStruct':
@@ -219,7 +228,7 @@ class ShaderStructDef:
         children:List['ShaderStruct'] = []
         if self.is_list:
             for i in range(self.list_length):
-                child_name = f'{name}.[{i}]'
+                child_name = f'{name}[{i}]'
                 if self.primitive:
                     uniforms.append(Uniform.as_primitive(child_name,
                                                          self.primitive_type))  # does not require local name; is list item

@@ -23,21 +23,16 @@ uniform sampler2D texMetallic;//mat
 #endif
 
 //globals
-//uniform vec3 light_pos;
 uniform float time;
 
-struct LightPropogation {
-    bool cubic;
-    float factor;
-};
 struct Light {
     vec3 position;
     vec3 color;
     float intensity;
-    LightPropogation propogation;
 };
-uniform Light light = {vec3(0.), vec3(1., 0., 0.), 100., {false, 1.0}};
-
+const int maxLights = 10;
+uniform int numLights;
+uniform Light[maxLights] lights;
 const vec3 ambient = vec3(0.7);
 
 const vec3 look = vec3(0., 0., 1.);
@@ -99,9 +94,12 @@ void main()
     diffuse_weight = 0.4;
     specular_weight = 0.6;
     #endif
-    vec3 light_dir = normalize(light.position - fposition);
-    float diffuse = max(dot(light_dir, normal), 0.);
-    float specular = pow(max(dot(look, -reflect(normal, light_dir)), 0.), light.propogation.factor);
-    col += (diffuse * diffuse_weight + specular * specular_weight) * light.color * light.intensity;
+    for (int i = 0; i<numLights; i++) {
+        Light light = lights[i];
+        vec3 light_dir = normalize(light.position - fposition);
+        float diffuse = max(dot(light_dir, normal), 0.);
+        float specular = pow(max(dot(look, -reflect(normal, light_dir)), 0.), 16.);
+        col += (diffuse * diffuse_weight + specular * specular_weight) * light.color * light.intensity;
+    }
     outputColor = vec4(col, 1.0);//alpha_depth_func(cameraPosition.z));
 }
