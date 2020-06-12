@@ -224,21 +224,21 @@ def request_close():
 
 def _create_uniforms():
     # Matricies
-    add_primitive_uniform_to_all('modelViewMatrix', 'mat4')
-    add_primitive_uniform_to_all('projectionMatrix', 'mat4')
-    add_primitive_uniform_to_all('viewMatrix', 'mat4')
+    add_primitive_global_uniform('modelViewMatrix', 'mat4')
+    add_primitive_global_uniform('projectionMatrix', 'mat4')
+    add_primitive_global_uniform('viewMatrix', 'mat4')
 
     # env
-    add_primitive_uniform_to_all('time', 'float')
+    add_primitive_global_uniform('time', 'float')
 
     # other
-    add_primitive_uniform_to_all('numLights', 'int')
+    add_primitive_global_uniform('numLights', 'int')
     light_def = ShaderStructDef('Light', primitive=False, is_list=True, list_length=10)
     light_def.set_primitive_field('position', 'vec3')
     light_def.set_primitive_field('color', 'vec3')
     light_def.set_primitive_field('intensity', 'float')
 
-    add_uniform_to_all(Uniform.as_struct('lights', light_def))
+    add_global_uniform(Uniform.as_struct('lights', light_def))
 
 
 def error_callback(error, description):
