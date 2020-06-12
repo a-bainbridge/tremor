@@ -18,18 +18,18 @@ u_types: Dict[str, Callable] = {
     'mat3': glUniformMatrix3fv,  # values as single parameter
     'mat4': glUniformMatrix4fv  # values as single parameter
 }
-u_type_default_value_args: Dict[str, list] = {
+u_type_default_value_args: Dict[str, tuple] = {
     # outer list matches parameter mapping for gl uniform functions. see u_types
-    'float': [0.0],
-    'vec2': [0., 0.],
-    'vec3': [0., 0., 0.],
-    'vec4': [0., 0., 0., 0.],
-    'int': [0],
-    'bool': [False],
-    'ivec2': [0, 0],
-    'ivec3': [0, 0, 0],
-    'mat3': [[[0, 0, 0], [0, 0, 0], [0, 0, 0]]],
-    'mat4': [[[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]]
+    'float': (0.0,),
+    'vec2': (0., 0.),
+    'vec3': (0., 0., 0.),
+    'vec4': (0., 0., 0., 0.),
+    'int': (0,),
+    'bool': (False,),
+    'ivec2': (0, 0),
+    'ivec3': (0, 0, 0),
+    'mat3': (((0, 0, 0), (0, 0, 0), (0, 0, 0)),),
+    'mat4': (((0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)),)
 }
 u_type_default_args: Dict[str, list] = {  # anything not present in this list can be assumed []
     'mat3': [1, GL_FALSE],

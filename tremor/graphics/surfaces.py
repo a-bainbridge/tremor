@@ -6,37 +6,34 @@ import pygltflib
 
 class TextureUnit:
     # setup:
-    #   - bind to gl context
-    #   - set active texture
-    #      -> setup the texture info
-    #   - set correct uniform per shader (this changes nothing internally within this object)
-    # render: don't do anything
+    #  - create the texture
+    #  - activate slot 0
+    #  - bind texture to slot, depending on type
+    # render:
+    #  - assign the texture an arbitrary texture slot, but remember it
+    #  - activate the texture slot
+    #  - bind the texture type you want to it
+    #  - assign the uniform location to be the bound texture in that slot
 
     # preferred 'constructor' method
 
-    global_index = 1  # todo: change this
-
     @staticmethod
-    def generate_texture(index=0) -> 'TextureUnit':
-        if index == 0:
-            index = TextureUnit.global_index
-            TextureUnit.global_index += 1
-        return TextureUnit(index, gl.glGenTextures(1))
+    def generate_texture() -> 'TextureUnit':
+        return TextureUnit(gl.glGenTextures(1))
 
-    def __init__(self, index: int, texture_unit):
-        self.index = index
-        self.unit = texture_unit
+    def __init__(self, handle):
+        self.handle = handle
+        self.active_location = 0
 
-    def bad_bind(self, target=gl.GL_TEXTURE_2D):
+    def active (self):
+        gl.glActiveTexture(gl.GL_TEXTURE0 + self.active_location)
+
+    def bind (self, target:gl.GLenum):
+        gl.glBindTexture(target, self.handle)
+
+    def setup_texture2D(self, data, width, height, img_format, sampler: pygltflib.Sampler, type=gl.GL_UNSIGNED_BYTE):
         self.active()
-        gl.glBindTexture(target, self.unit)
-
-    def active(self):
-        gl.glActiveTexture(gl.GL_TEXTURE0 + self.index)
-
-    def bind_tex2d(self, data, width, height, img_format, sampler: pygltflib.Sampler, type=gl.GL_UNSIGNED_BYTE):
-        self.active()
-        gl.glBindTexture(gl.GL_TEXTURE_2D, self.unit)
+        self.bind(gl.GL_TEXTURE_2D)
 
         gl.glTexImage2D(
             gl.GL_TEXTURE_2D,
@@ -67,11 +64,11 @@ class Material:
                            metallic_texture: TextureUnit = None, normal_texture: TextureUnit = None) -> 'Material':
         mat = Material(gltf_mat.name)
         if color_texture is not None:
-            mat.set_texture(color_texture, MaterialTexture.COLOR)
+            mat.set_texture(color_texture, MaterialTexture.COLOR, gl.GL_TEXTURE_2D)
         if metallic_texture is not None:
-            mat.set_texture(metallic_texture, MaterialTexture.METALLIC)
+            mat.set_texture(metallic_texture, MaterialTexture.METALLIC, gl.GL_TEXTURE_2D)
         if normal_texture is not None:
-            mat.set_texture(normal_texture, MaterialTexture.NORMAL)
+            mat.set_texture(normal_texture, MaterialTexture.NORMAL, gl.GL_TEXTURE_2D)
 
         pbr = gltf_mat.pbrMetallicRoughness
         mat.set_property('baseColor', pbr.baseColorFactor)
@@ -80,19 +77,19 @@ class Material:
         mat.set_property('emissiveFactor', gltf_mat.emissiveFactor)
         return mat
 
-    def __init__(self, name: str = 'unnamed', flags: List[str] = [], **kwargs):
+    def __init__(self, name: str = 'unnamed', flags: List[str] = (), **kwargs):
         self.name = name
 
         # the textures
         self.textures: Dict[str, MaterialTexture] = {
-            MaterialTexture.COLOR: MaterialTexture(MaterialTexture.COLOR),
-            MaterialTexture.METALLIC: MaterialTexture(MaterialTexture.METALLIC),
-            MaterialTexture.NORMAL: MaterialTexture(MaterialTexture.NORMAL)
+            MaterialTexture.COLOR: MaterialTexture(MaterialTexture.COLOR, gl.GL_TEXTURE_2D),
+            MaterialTexture.METALLIC: MaterialTexture(MaterialTexture.METALLIC, gl.GL_TEXTURE_2D),
+            MaterialTexture.NORMAL: MaterialTexture(MaterialTexture.NORMAL, gl.GL_TEXTURE_2D)
         }
         self._texture_flags = []
         self._do_texture_flags()
         self._properties: Dict[str, any] = {}
-        self._flags: List[str] = flags
+        self._flags: List[str] = list(flags)
 
         for k, v in kwargs.items():
             self.set_property(k, v)
@@ -121,8 +118,8 @@ class Material:
         self._do_texture_flags()
 
     # helper for set_mat_texture. they do the same thing
-    def set_texture(self, texture: TextureUnit, tex_type: str) -> None:
-        self.set_mat_texture(MaterialTexture(tex_type, texture))
+    def set_texture(self, texture: TextureUnit, tex_type: str, target:gl.GLenum) -> None:
+        self.set_mat_texture(MaterialTexture(tex_type, texture, target))
         self._do_texture_flags()
 
     def get_mat_texture(self, mat_texture_type: str = None) -> 'MaterialTexture':
@@ -149,6 +146,18 @@ class Material:
     def get_all_textures(self) -> List[TextureUnit]:
         return [tex.texture for tex in self.get_all_mat_textures()]
 
+    def bind_textures(self, offset:int=0) -> int: # bind textures starting at the offset, and return the index of the NEXT unused texture slot
+        textures = self.get_all_mat_textures()
+        # if len(textures) + offset >= gl.glGetInteger(gl.GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS):
+        #     raise Exception('Number of textures exceeded maximum allowed by OpenGL')
+        index = offset
+        for t in textures:
+            t.texture.active_location = index
+            t.texture.active()
+            t.texture.bind(t.target)
+            index += 1
+        return index
+
     def _do_texture_flags(self):
         self._texture_flags = []
         for tex in self.get_all_mat_textures():
@@ -167,9 +176,10 @@ class MaterialTexture:
     OCCLUSION = 'texOcclusion'
     EMISSIVE = 'texEmissive'
 
-    def __init__(self, tex_type: str, texture: TextureUnit = None):
+    def __init__(self, tex_type: str, target:gl.GLenum, texture: TextureUnit = None):
         self.exists: bool = texture is not None
         self.tex_type: str = tex_type
+        self.target = target
         self._texture = texture
 
     def get_texture(self) -> TextureUnit:

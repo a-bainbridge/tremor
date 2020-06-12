@@ -187,11 +187,11 @@ def load_gltf(filepath) -> Mesh:
             normal = mat.normalTexture
             metallic = mat.pbrMetallicRoughness.metallicRoughnessTexture
             if color is not None:
-                mesh.material.set_texture(get_texture(color.index), MaterialTexture.COLOR)
+                mesh.material.set_texture(get_texture(color.index), MaterialTexture.COLOR, GL.GL_TEXTURE_2D)
             if normal is not None:
-                mesh.material.set_texture(get_texture(normal.index), MaterialTexture.NORMAL)
+                mesh.material.set_texture(get_texture(normal.index), MaterialTexture.NORMAL, GL.GL_TEXTURE_2D)
             if metallic is not None:
-                mesh.material.set_texture(get_texture(metallic.index), MaterialTexture.METALLIC)
+                mesh.material.set_texture(get_texture(metallic.index), MaterialTexture.METALLIC, GL.GL_TEXTURE_2D)
         if mesh.material is None:
             mesh.set_shader(shaders.get_default_program())
             mesh.material = mesh.program.create_material()
@@ -270,7 +270,7 @@ def load_gltf_image(gltf_image: pygltflib.Image, data, sampler: pygltflib.Sample
     # mag_filter = accessor_sampler_type(sampler.magFilter)
     # clamp_mode = accessor_sampler_type(sampler.wrapS)
     tex = TextureUnit.generate_texture()
-    tex.bind_tex2d(data, width=img.width, height=img.height, img_format=mode, sampler=sampler)
+    tex.setup_texture2D(data, width=img.width, height=img.height, img_format=mode, sampler=sampler)
     # tex = Texture(data, gltf_image.name, width=img.width, height=img.height, img_format=mode, min_filter=min_filter,
     #               mag_filter=mag_filter, clamp_mode=clamp_mode)
     return tex
