@@ -301,12 +301,14 @@ class ShaderInput:
 
 
 class MeshProgram:
-    def __init__(self, name: str, compiled_vertex, compiled_fragment, inputs: List[ShaderInput] = []):
+    def __init__(self, name: str, compiled_vertex, compiled_fragment, inputs: List[ShaderInput] = ()):
         self.name = name
         self.program = glCreateProgram()
         self.uniforms: Dict[str, Uniform] = {}
-        self.inputs: List[ShaderInput] = inputs
+        self.inputs: List[ShaderInput] = list(inputs)
         self.add_uniforms_from_inputs()
+        self._cached_texture_locations:Dict[str, GLenum] = {}
+        self._cached = False
 
         glAttachShader(self.program, compiled_vertex)
         glAttachShader(self.program, compiled_fragment)
@@ -387,14 +389,24 @@ class MeshProgram:
             mat.set_property(prop.name, prop.value)
         return mat
 
+    def _update_cache (self, material:Material):
+        if not self._cached:
+            for inp in self.inputs:
+                if inp.is_texture:
+                    mat_tex = material.get_mat_texture(inp.texture_type)
+                    self._cached_texture_locations[mat_tex.tex_type] = glGetUniformLocation(self.program, mat_tex.tex_type)
+            self._cached = True
+    def invalidate_cache (self):
+        self._cached = False
     # set uniforms for this shader from the provided material that are relevant
     def use_material(self, mat: Material):
         # NOTE: make sure this program is being used
+        self._update_cache(mat)
         for inp in self.inputs:
             if inp.is_texture:
                 mat_tex = mat.get_mat_texture(inp.texture_type)
                 glUniform1i(
-                    glGetUniformLocation(self.program, mat_tex.tex_type),
+                    self._cached_texture_locations[mat_tex.tex_type],
                     mat_tex.texture.active_location
                 )
             else:
