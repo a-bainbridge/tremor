@@ -41,9 +41,10 @@ class Mesh:
     def render(self, transform: Transform):
         self.bind_vao()
         GL.glUseProgram(self.gl_program)
+        self.program.refresh_all_global_uniforms()
         self.program.update_uniform('modelViewMatrix',
                                     [1, GL.GL_FALSE, transform.to_model_view_matrix_global().transpose()])
-        self.material.bind_textures(0)
+        self.material.bind_textures(offset=0)
         self.program.use_material(self.material)
         if self.element:
             GL.glBindBuffer(GL.GL_ELEMENT_ARRAY_BUFFER, self.elementBufID)
@@ -60,6 +61,7 @@ class Mesh:
 
     def render_scene_mesh(self, scene, transform: Transform):
         GL.glUseProgram(self.gl_program)
+        self.program.refresh_all_global_uniforms()
         self.program.update_uniform('modelViewMatrix',
                                     [1, GL.GL_FALSE, transform.to_model_view_matrix_global().transpose()])
         # self.program.use_material(self.material)

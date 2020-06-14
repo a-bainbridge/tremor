@@ -5,7 +5,7 @@ from tremor.graphics import graphics_subsystem
 from tremor.net.client import client_net
 
 text = "Player"
-ip_text = "96.19.3.230"
+ip_text = "localhost" # 96.19.3.230
 
 def show_main_menu():
     global text, ip_text

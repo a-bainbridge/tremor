@@ -1,5 +1,5 @@
 import copy
-from typing import Dict, Callable, List
+from typing import Dict, Callable, List, Any
 
 from OpenGL.GL import *
 
@@ -35,6 +35,7 @@ u_type_default_args: Dict[str, list] = {  # anything not present in this list ca
     'mat3': [1, GL_FALSE],
     'mat4': [1, GL_FALSE]
 }
+u_type_get_default_args = lambda typ: [] if typ not in u_type_default_args.keys() else u_type_default_args[typ]
 # u_type_convert_func:Dict[str, Callable] = { # given a string, with values separated by commas, serialize that string value using this dict
 #     'float': float,
 #     'vec2': float,
@@ -57,36 +58,39 @@ gl_compressed_format: Dict[int, int] = {  # todo: reconsider
     GL_SRGB_ALPHA: GL_COMPRESSED_SRGB_ALPHA
     # exotic formats omitted
 }
-GLOBAL_UNIFORMS: Dict[str, 'Uniform'] = {}
+GLOBAL_UNIFORMS: Dict[str, 'Uniform'] = {} # simplified, without tree structure of uniforms
 
 
 def add_primitive_global_uniform(name: str, u_type: str):
-    # for prog in shaders.get_programs():
-    #     prog.add_primitive_uniform(name, u_type)
     unif = Uniform.as_primitive(name, u_type)
-    unif.is_global = True
-    _add_uniform_to_all_programs(unif) # todo: remove
-    # todo: put string pointers in programs that are assigned global uniforms then fetch??
+    add_global_uniform(unif)
 
 
 def add_global_uniform(unif: 'Uniform'):
-    unif.is_global = True
-    GLOBAL_UNIFORMS[unif.name] = unif # todo: cache using Uniform.get_all_leaves()?
-    _add_uniform_to_all_programs(unif) # todo: remove
+    unifs = unif.get_all_leaves()
+    for u in unifs:
+        u.is_global = True
+        GLOBAL_UNIFORMS[u.name] = u
+    add_uniform_to_all_programs(unif)
 
 
-def _add_uniform_to_all_programs(unif: 'Uniform'):
+def add_uniform_to_all_programs(unif: 'Uniform'):
+    # NOTE: if you're adding a global, use add_global_uniform instead.
+    #       Only use this method if you want to add a uniform controlled
+    #       per-entity or something for programs (like the model view matrix)
     for prog in shaders.get_programs():
         prog.add_uniform(unif.copy())
 
+def update_global_uniform (name:str, value):
+    GLOBAL_UNIFORMS[name].smart_set_value(value)
 
-def update_all_uniform(name: str, values: list):
+def BAD_update_all_uniform(name: str, values: list):
     for prog in shaders.get_programs():
         prog.update_uniform(name, values)
 
 
 def BAD_set_all_uniform_by_property_chain(name: str, property_chain: str, values: list):
-    props = property_chain.split('.')
+    props:List[Any] = property_chain.split('.')
     p_i = -1
     for p in props:
         p_i += 1
@@ -101,7 +105,7 @@ def BAD_set_all_uniform_by_property_chain(name: str, property_chain: str, values
         while index < len(props):
             u = u[props[index]]
             index += 1
-        u.set_values(values)
+        u.set_raw_values(values)
         prog.use()
         u.call_uniform_func()
 
@@ -148,10 +152,20 @@ class Uniform:
         return Uniform(name=self.name, loc=None, values=[], u_type=self.u_type, local_name=self.local_name,
                        is_global=self.is_global)
 
-    def set_values(self, values: list):
+    def values_from_other (self, other:'Uniform'):
+        self.set_raw_values([v for v in other.values])
+
+    def set_raw_values(self, values: list):
         self.values = values
         if not self.u_type.is_simple_primitive():
             print('WARNING: set values to %s that is not a primitive' % self.name)
+
+    def smart_set_value (self, value):
+        if not self.u_type.is_simple_primitive():
+            print('WARNING: setting values to %s that is not a primitive (type %s)'%(self.name, self.u_type.type_name))
+        if type(value) != list:
+            value = [value]
+        self.set_raw_values(u_type_get_default_args(self.u_type.primitive_type) + value)
 
     def __getitem__ (self, prop):
         """
@@ -172,8 +186,8 @@ class Uniform:
     def set_location(self, program: GLuint):
         if self.u_type.is_simple_primitive():
             self._loc = glGetUniformLocation(program, self.name)
-            # if self._loc == -1:
-            #     print(f"WARNING: missing location for '{self.name}'")
+            if self._loc == -1:
+                print(f"WARNING: missing location for '{self.name}'")
         else:
             self.fields.recursive_uniform_function_call(Uniform.set_location, (program,))
 

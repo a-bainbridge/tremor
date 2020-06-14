@@ -125,13 +125,18 @@ def draw_scene(scene):
     up_vec = glm.normalize(glm.vec3(matrix.translation_from_matrix(b)[:3])-cam_vec)
     view_mat = glm.lookAt(cam_vec, point_at, up_vec)
     model_mat = np.identity(4, dtype='float32')  # by default, no transformations applied
-    update_all_uniform('modelViewMatrix', [1, GL_FALSE, model_mat])
-    update_all_uniform('viewMatrix', [1, GL_FALSE, np.array(view_mat)])
-    update_all_uniform('projectionMatrix', [1, GL_FALSE, np.array(perspective_mat)])
+    # BAD_update_all_uniform('modelViewMatrix', [1, GL_FALSE, model_mat])
+    # update_global_uniform('modelViewMatrix', model_mat)
+    # BAD_update_all_uniform('viewMatrix', [1, GL_FALSE, np.array(view_mat)])
+    update_global_uniform('viewMatrix', np.array(view_mat))
+    # BAD_update_all_uniform('projectionMatrix', [1, GL_FALSE, np.array(perspective_mat)])
+    update_global_uniform('projectionMatrix', np.array(perspective_mat))
 
-    update_all_uniform('time', [framecount / screen_utils.MAX_FPS])  # seconds
+    # BAD_update_all_uniform('time', [framecount / screen_utils.MAX_FPS])  # seconds # todo: update globals using refresh globals in meshshader on use_material
+    update_global_uniform('time', framecount / screen_utils.MAX_FPS)
 
-    update_all_uniform('numLights', [2])
+    # BAD_update_all_uniform('numLights', [2])
+    update_global_uniform('numLights', 2)
     light_pos = [np.sin(framecount * 0.01) * 50, np.cos(framecount * 0.01) * 50, np.cos(framecount * 0.001)*50]
     swizzled = [light_pos[1], light_pos[0], light_pos[2]]
     # update_all_uniform('light_pos', light_pos)
@@ -224,7 +229,8 @@ def request_close():
 
 def _create_uniforms():
     # Matricies
-    add_primitive_global_uniform('modelViewMatrix', 'mat4')
+    # add_primitive_global_uniform('modelViewMatrix', 'mat4')
+    add_uniform_to_all_programs(Uniform.as_primitive('modelViewMatrix', 'mat4'))
     add_primitive_global_uniform('projectionMatrix', 'mat4')
     add_primitive_global_uniform('viewMatrix', 'mat4')
 

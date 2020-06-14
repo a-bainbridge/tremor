@@ -336,9 +336,22 @@ class MeshProgram:
     def add_uniform (self, uniform:Uniform):
         self.uniforms[uniform.name] = uniform
 
+    def refresh_all_global_uniforms (self):
+        for u in self.uniforms.values():
+            if u.is_global:
+                u.values_from_other(GLOBAL_UNIFORMS[u.name])
+                u.call_uniform_func()
+
+    def refresh_global_uniform (self, name:str):
+        u = self.get_uniform(name)
+        u.values_from_other(GLOBAL_UNIFORMS[name])
+        u.call_uniform_func()
+
+
     def update_uniform(self, name: str, values: list = None):
-        glUseProgram(self.program)
-        # self.check_is_uniform(name)
+        # NOTE: make sure this program is being used
+        if values is not None:
+            self.uniforms[name].set_raw_values(values)
         self.uniforms[name].call_uniform_func(values)
 
     def get_uniform (self, name:str) -> Uniform:
@@ -365,7 +378,7 @@ class MeshProgram:
         return self.uniforms[name].values
 
     # get a material with relevant properties for this shader
-    def create_material(self, name=None) -> Material:
+    def create_material(self, name:str=None) -> Material:
         if name is None:
             name = f'{self.name}_mat'
         mat = Material(name)
@@ -376,6 +389,7 @@ class MeshProgram:
 
     # set uniforms for this shader from the provided material that are relevant
     def use_material(self, mat: Material):
+        # NOTE: make sure this program is being used
         for inp in self.inputs:
             if inp.is_texture:
                 mat_tex = mat.get_mat_texture(inp.texture_type)

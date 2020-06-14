@@ -119,7 +119,7 @@ def main():
     input_subsystem.init()
     console.load_startup("startup.rc")
     client_net.init()
-    dt = 1 / 60.0
+    dt = 1 / 60.0 # todo: 1/max fps
     while not graphics_subsystem.window_close_requested():
         start_time = time.time()
         input_subsystem.poll_events()
