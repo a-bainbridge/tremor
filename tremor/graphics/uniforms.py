@@ -1,4 +1,4 @@
-import copy
+import re as ree
 from typing import Dict, Callable, List, Any
 
 from OpenGL.GL import *
@@ -58,19 +58,16 @@ gl_compressed_format: Dict[int, int] = {  # todo: reconsider
     GL_SRGB_ALPHA: GL_COMPRESSED_SRGB_ALPHA
     # exotic formats omitted
 }
-GLOBAL_UNIFORMS: Dict[str, 'Uniform'] = {}  # simplified, without tree structure of uniforms
+GLOBAL_UNIFORMS: Dict[str, 'ExpandedUniform'] = {}  # simplified, without tree structure of uniforms
 
 
 def add_primitive_global_uniform(name: str, u_type: str):
-    unif = Uniform.as_primitive(name, u_type)
+    unif = Uniform.as_primitive(name, u_type, is_global=True)
     add_global_uniform(unif)
 
 
 def add_global_uniform(unif: 'Uniform'):
-    unifs = unif.get_all_leaves()
-    for u in unifs:
-        u.is_global = True
-        GLOBAL_UNIFORMS[u.name] = u
+    GLOBAL_UNIFORMS[unif.name] = ExpandedUniform(unif)
     add_uniform_to_all_programs(unif)
 
 
@@ -85,9 +82,17 @@ def add_ubo_to_all_programs (ubo:'UBO'):
     for prog in shaders.get_programs():
         prog.apply_ubo(ubo)
 
+def get_global_uniform (leaf_name:str) -> 'Uniform':
+    expr = ree.compile('(\w+)(.+)?')
+    match = expr.match(leaf_name).groups()
+    root_name = match[0]
+    if match[1] is not None:
+        return GLOBAL_UNIFORMS[root_name].expanded(leaf_name)
+    else:
+        return GLOBAL_UNIFORMS[root_name].uniform
 
 def update_global_uniform(name: str, value):
-    GLOBAL_UNIFORMS[name].smart_set_value(value)
+    get_global_uniform(name).smart_set_value(value)
 
 
 def BAD_update_all_uniform(name: str, values: list):
@@ -128,8 +133,8 @@ class Uniform:
     """
 
     @staticmethod
-    def as_primitive(name: str, u_type: str) -> 'Uniform':
-        return Uniform(name, None, [], ShaderStructDef.as_primitive(name, u_type), local_name=name)
+    def as_primitive(name: str, u_type: str, is_global=False) -> 'Uniform':
+        return Uniform(name, None, [], ShaderStructDef.as_primitive(name, u_type, is_global=is_global), local_name=name)
 
     @staticmethod
     def as_struct(name: str, u_type: 'ShaderStructDef') -> 'Uniform':
@@ -150,26 +155,33 @@ class Uniform:
         self.values: list = values
         self.u_type: 'ShaderStructDef' = u_type
         self.fields: 'ShaderStruct' = None
-        self.is_global = is_global  # flag to fetch from global uniforms
+        self.expanded:'ExpandedUniform' = None
         if not self.u_type.is_simple_primitive():
             self.fields = u_type.get_struct(self.name)
+            self.expanded = ExpandedUniform(self)
+
+    def is_global (self):
+        return self.u_type.is_global
 
     def copy(self) -> 'Uniform':
-        return Uniform(name=self.name, loc=None, values=[], u_type=self.u_type, local_name=self.local_name,
-                       is_global=self.is_global)
-
+        return Uniform(name=self.name, loc=None, values=[], u_type=self.u_type, local_name=self.local_name)
+    def no_values (self) -> bool:
+        return self.values is None or len(self.values) == 0
     def values_from_other(self, other: 'Uniform'):
-        self.set_raw_values([v for v in other.values])
+        if self.u_type.is_simple_primitive() and other.u_type.is_simple_primitive():
+            self.set_raw_values([v for v in other.values])
+        else:
+            for u in self.expanded.all_leaves:
+                u.set_raw_values([v for v in other.expanded.expanded(u.name).values])
 
     def set_raw_values(self, values: list):
         self.values = values
         if not self.u_type.is_simple_primitive():
-            print('WARNING: set values to %s that is not a primitive' % self.name)
+            print('WARNING: set values to "%s" that is not a primitive' % self.name)
 
     def smart_set_value(self, value):
         if not self.u_type.is_simple_primitive():
-            print(
-                'WARNING: setting values to %s that is not a primitive (type %s)' % (self.name, self.u_type.type_name))
+            print('WARNING: setting values to %s that is not a primitive (type %s)' % (self.name, self.u_type.type_name))
         if type(value) != list:
             value = [value]
         self.set_raw_values(u_type_get_default_args(self.u_type.primitive_type) + value)
@@ -202,12 +214,15 @@ class Uniform:
         if self.u_type.is_simple_primitive():
             if values is not None:
                 self.values = values
-            if self.values is None or len(self.values) == 0:
+            if self.no_values():
                 print('no value set for uniform %s' % self.name)
                 return
             self._get_uniform_func()(*self._get_args())
         else:
             self.fields.recursive_uniform_function_call(Uniform.call_uniform_func, ())
+
+    def recursive_uniform_call (self, uniform_function:Callable, args:tuple):
+        self.fields.recursive_uniform_function_call(uniform_function, args)
 
     def _u_int(self, ul):
         if self.u_type.is_simple_primitive():
@@ -220,35 +235,32 @@ class Uniform:
         self.fields.recursive_uniform_function_call(Uniform._u_int, (us,))
         return us
 
+class ExpandedUniform:
+    def __init__ (self, uniform:Uniform):
+        self.uniform = uniform
+        self.all_leaves:List[Uniform] = uniform.get_all_leaves()
+        self._keyed:Dict[str, Uniform] = {}
+        for u in self.all_leaves:
+            self._keyed[u.name] = u
 
-# class ShaderArrayDef:
-#     def __init__(self, name: str, u_type: 'ShaderStructDef', length: int):
-#         self.name = name
-#         self.u_type = u_type
-#         self.length = length
-#
-#     def get_struct(self) -> List[Uniform]:
-#         us = []
-#         for i in range(self.length):
-#             if self.u_type.is_simple_primitive():
-#                 us.append(Uniform(f'{self.name}[{i}]', loc=None, values=[], u_type=self.u_type))
-#             else:
-#                 us += self.u_type.get_struct(self.name)
-#         return us
+    def expanded (self, uniform_name_str:str) -> Uniform:
+        return self._keyed[uniform_name_str]
+    def __getitem__ (self, item:str) -> Uniform:
+        return self.uniform[item]
 
 
 class ShaderStructDef:
 
     @staticmethod
-    def as_primitive(name: str, u_type: str) -> 'ShaderStructDef':
-        return ShaderStructDef(type_name=name, primitive=True, primitive_type=u_type, is_list=False)
+    def as_primitive(name: str, u_type: str, is_global=False) -> 'ShaderStructDef':
+        return ShaderStructDef(type_name=name, primitive=True, primitive_type=u_type, is_list=False, is_global=is_global)
 
     @staticmethod
     def as_primitive_list(name: str, u_type: str, length: int) -> 'ShaderStructDef':
         return ShaderStructDef(type_name=name, primitive=True, is_list=True, list_length=length, primitive_type=u_type)
 
     def __init__(self, type_name: str, primitive: bool, is_list: bool, list_length: int = None,
-                 primitive_type: str = None,
+                 primitive_type: str = None, is_global:bool=False,
                  **kwargs):
         # NOTE: just because self.primitive = True doesn't mean it's not a LIST
         self.type_name = type_name
@@ -256,6 +268,7 @@ class ShaderStructDef:
         self.primitive_type: str = primitive_type
         self.is_list = is_list  # if it is a list, then it is a list containing THIS type
         self.list_length = list_length
+        self.is_global = is_global
         self._fields: Dict[str, 'ShaderStructDef'] = {}  # fields is uniform_name: uniform_type
         self.set_fields_from_dict(kwargs)
 
@@ -267,13 +280,14 @@ class ShaderStructDef:
                 self.set_field(k, v)
 
     def set_field(self, field_name, field_type: 'ShaderStructDef'):
+        field_type.is_global = self.is_global # inherit
         self._fields[field_name] = field_type
 
     def set_primitive_field(self, name: str, u_type: str):
         self.set_field(name, ShaderStructDef.as_primitive(name, u_type))
 
     def _get_list_child_instance(self) -> 'ShaderStructDef':  # NOTE: lists cannot be contained in list
-        s = ShaderStructDef(self.type_name, primitive=self.primitive, is_list=False, primitive_type=self.primitive_type)
+        s = ShaderStructDef(self.type_name, primitive=self.primitive, is_list=False, primitive_type=self.primitive_type, is_global=self.is_global)
         s.set_fields_from_dict(self._fields)
         return s
 

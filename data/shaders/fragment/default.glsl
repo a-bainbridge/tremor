@@ -34,7 +34,7 @@ layout(std140) uniform Test {
     float scroll_speed;
     float scale_amplitude;
     vec2 uv_offset;
-};
+} test;
 const int maxLights = 10;
 uniform int numLights;
 uniform Light[maxLights] lights;
@@ -75,7 +75,7 @@ void main()
     //v = surface-to-camera vector
 
     #ifdef t_texColor
-    vec2 uv = texCoord * (1.+scale_amplitude*sin(time)) + time * scroll_speed * uv_offset;
+    vec2 uv = texCoord * (1.+test.scale_amplitude*sin(time)) + time * test.scroll_speed * test.uv_offset;
 //    vec2 uv = texCoord;
     vec4 t = texture2D(texColor, uv);
     #ifdef maskAlpha

@@ -317,7 +317,7 @@ class MeshProgram:
         glAttachShader(self.program, compiled_fragment)
         glLinkProgram(self.program)
         status = glGetProgramiv(self.program, GL_LINK_STATUS)
-        if status == GL_FALSE or True:
+        if status == GL_FALSE:
             print("Linker failure: " + str(glGetProgramInfoLog(self.program)))
 
     def use(self):
@@ -344,13 +344,21 @@ class MeshProgram:
 
     def refresh_all_global_uniforms(self):
         for u in self.uniforms.values():
-            if u.is_global:
-                u.values_from_other(GLOBAL_UNIFORMS[u.name])
-                u.call_uniform_func()
+            if u.is_global():
+                if u.u_type.is_simple_primitive():
+                    self._refresh(u)
+                else:
+                    for uu in u.expanded.all_leaves:
+                        self._refresh(uu)
 
     def refresh_global_uniform(self, name: str):
         u = self.get_uniform(name)
-        u.values_from_other(GLOBAL_UNIFORMS[name])
+        self._refresh(u)
+
+    def _refresh (self, u:Uniform):
+        glob = get_global_uniform(u.name)
+        if glob.no_values(): return
+        u.values_from_other(glob)
         u.call_uniform_func()
 
     def update_uniform(self, name: str, values: list = None):

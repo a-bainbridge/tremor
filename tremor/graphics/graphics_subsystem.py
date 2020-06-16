@@ -138,7 +138,8 @@ def draw_scene(scene):
     light_pos = [np.sin(framecount * 0.01) * 50, np.cos(framecount * 0.01) * 50, np.cos(framecount * 0.001)*50]
     swizzled = [light_pos[1], light_pos[0], light_pos[2]]
     # update_all_uniform('light_pos', light_pos)
-    BAD_set_all_uniform_by_property_chain('lights', '0.position', light_pos)
+    # BAD_set_all_uniform_by_property_chain('lights', '0.position', light_pos)
+    update_global_uniform('lights[0].position', light_pos)
     BAD_set_all_uniform_by_property_chain('lights', '0.color', [1, 0, 1])
     BAD_set_all_uniform_by_property_chain('lights', '0.intensity', [1.0])
 
@@ -153,13 +154,13 @@ def draw_scene(scene):
     scene.bind_scene_vao()
     for element in scene.entities:
         if element is None:
-            continue
+            break
         if element.is_renderable() and element.mesh.is_scene_mesh:
             element.mesh.render_scene_mesh(scene, element.transform)
 
     for element in scene.entities:
         if element is None:
-            continue
+            break
         if element.is_renderable():
             if not element.mesh.is_scene_mesh:
                 element.mesh.render(element.transform)
@@ -242,7 +243,7 @@ def _create_uniforms():
 
     # other
     add_primitive_global_uniform('numLights', 'int')
-    light_def = ShaderStructDef('Light', primitive=False, is_list=True, list_length=10)
+    light_def = ShaderStructDef('Light', primitive=False, is_list=True, list_length=10, is_global=True)
     light_def.set_primitive_field('position', 'vec3')
     light_def.set_primitive_field('color', 'vec3')
     light_def.set_primitive_field('intensity', 'float')
