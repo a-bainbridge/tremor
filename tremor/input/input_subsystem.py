@@ -8,11 +8,12 @@ from tremor.input import key_input
 inputs = {'mouse': [0, 0]}
 
 def init():
+    clamp = lambda value, min_value, max_value: min(max(value, min_value), max_value)
     imgui_renderer = graphics_subsystem.imgui_renderer
     window = graphics_subsystem.window
 
     def mouseclick_callback(window, button, action, modifiers):
-        pass
+        print('fps: %s'%client_main.debug_fps)
 
     def scroll_callback(window, x, y):
         imgui_renderer.scroll_callback(window, x, y)

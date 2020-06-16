@@ -10,13 +10,13 @@ from tremor.loader import gltf_loader
 from tremor.loader.scene import binloader
 from tremor.math import matrix
 from tremor.math.geometry import AABB
-from tremor.math.vertex_math import magnitude_vec3
 from tremor.net.client import client_net
 from tremor.net.command import *
 from tremor.net.common import ConnectionState
 
 current_scene: Scene = None
 viewangles = np.array([0, 0], dtype='float32')
+debug_fps = 0
 
 
 def handle(cmd):
@@ -114,6 +114,7 @@ def load_map(map_name):
 
 
 def main():
+    global debug_fps
     graphics_subsystem.init()
     graphics_subsystem._ui_state = UIState.MAIN_MENU
     input_subsystem.init()
@@ -137,6 +138,10 @@ def main():
         graphics_subsystem.end_frame()
         end_time = time.time()
         dt = end_time - start_time
+        if dt == 0:
+            debug_fps = 0
+        else:
+            debug_fps = 1/dt
     client_net.shutdown()
     input_subsystem.shutdown()
     graphics_subsystem.shutdown()

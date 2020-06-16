@@ -58,7 +58,7 @@ gl_compressed_format: Dict[int, int] = {  # todo: reconsider
     GL_SRGB_ALPHA: GL_COMPRESSED_SRGB_ALPHA
     # exotic formats omitted
 }
-GLOBAL_UNIFORMS: Dict[str, 'Uniform'] = {} # simplified, without tree structure of uniforms
+GLOBAL_UNIFORMS: Dict[str, 'Uniform'] = {}  # simplified, without tree structure of uniforms
 
 
 def add_primitive_global_uniform(name: str, u_type: str):
@@ -81,8 +81,14 @@ def add_uniform_to_all_programs(unif: 'Uniform'):
     for prog in shaders.get_programs():
         prog.add_uniform(unif.copy())
 
-def update_global_uniform (name:str, value):
+def add_ubo_to_all_programs (ubo:'UBO'):
+    for prog in shaders.get_programs():
+        prog.apply_ubo(ubo)
+
+
+def update_global_uniform(name: str, value):
     GLOBAL_UNIFORMS[name].smart_set_value(value)
+
 
 def BAD_update_all_uniform(name: str, values: list):
     for prog in shaders.get_programs():
@@ -90,7 +96,7 @@ def BAD_update_all_uniform(name: str, values: list):
 
 
 def BAD_set_all_uniform_by_property_chain(name: str, property_chain: str, values: list):
-    props:List[Any] = property_chain.split('.')
+    props: List[Any] = property_chain.split('.')
     p_i = -1
     for p in props:
         p_i += 1
@@ -152,7 +158,7 @@ class Uniform:
         return Uniform(name=self.name, loc=None, values=[], u_type=self.u_type, local_name=self.local_name,
                        is_global=self.is_global)
 
-    def values_from_other (self, other:'Uniform'):
+    def values_from_other(self, other: 'Uniform'):
         self.set_raw_values([v for v in other.values])
 
     def set_raw_values(self, values: list):
@@ -160,14 +166,15 @@ class Uniform:
         if not self.u_type.is_simple_primitive():
             print('WARNING: set values to %s that is not a primitive' % self.name)
 
-    def smart_set_value (self, value):
+    def smart_set_value(self, value):
         if not self.u_type.is_simple_primitive():
-            print('WARNING: setting values to %s that is not a primitive (type %s)'%(self.name, self.u_type.type_name))
+            print(
+                'WARNING: setting values to %s that is not a primitive (type %s)' % (self.name, self.u_type.type_name))
         if type(value) != list:
             value = [value]
         self.set_raw_values(u_type_get_default_args(self.u_type.primitive_type) + value)
 
-    def __getitem__ (self, prop):
+    def __getitem__(self, prop):
         """
         :param prop: either a string or int representing the child of a struct or list
         :return: Uniform or struct, depending on what you get. You can only usefully access leaf nodes.
@@ -202,17 +209,16 @@ class Uniform:
         else:
             self.fields.recursive_uniform_function_call(Uniform.call_uniform_func, ())
 
-    def _u_int (self, ul):
+    def _u_int(self, ul):
         if self.u_type.is_simple_primitive():
             ul.append(self)
-    def get_all_leaves (self) -> List['Uniform']: # return a 1d list of uniforms, including all children
+
+    def get_all_leaves(self) -> List['Uniform']:  # return a 1d list of uniforms, including all children
         if self.u_type.is_simple_primitive():
             return [self]
-        us:List['Uniform'] = []
+        us: List['Uniform'] = []
         self.fields.recursive_uniform_function_call(Uniform._u_int, (us,))
         return us
-
-
 
 
 # class ShaderArrayDef:
@@ -255,7 +261,10 @@ class ShaderStructDef:
 
     def set_fields_from_dict(self, dictionary: dict):
         for k, v in dictionary.items():
-            self.set_field(k, v)
+            if type(v) == str:
+                self.set_field(k, ShaderStructDef.as_primitive(k, v))
+            else:
+                self.set_field(k, v)
 
     def set_field(self, field_name, field_type: 'ShaderStructDef'):
         self._fields[field_name] = field_type
@@ -369,3 +378,105 @@ class ShaderStruct:
             func(u, *args)
         for c in self.children:
             c.recursive_uniform_function_call(func, args)
+
+
+class UBOElement:  # dataclass
+    PRIMITIVE_BASE_ALIGNMENT = {
+        # primitive type: number of bytes
+        'bool': 4,
+        'int': 4,
+        'float': 4,
+        'vec2': 8,
+        'vec3': 16,
+        'vec4': 16,
+        'mat3': 16,
+        'mat4': 16
+    }
+    def __init__(self, name, base_alignment, number, data):
+        self.name = name
+        self.base_alignment = base_alignment
+        self.number = number
+        self.data = data
+        # mutable
+        self.offset = -1
+
+    def size(self) -> int:
+        return self.base_alignment * self.number
+
+    def nearest_offset(self, offset: int) -> int:
+        return offset + self.base_alignment - (offset-1) % self.base_alignment - 1 # don't ask
+
+    def next_offset(self, next: 'UBOElement') -> int:  # return next offset, used for the next element
+        return next.nearest_offset(self.offset + self.size())
+
+
+class UBO:
+    """
+    Assuming std140 layout for convenience
+    """
+    _incremental_bind_point = 1 # these are arbitrary, so I'll leave it for now
+    @staticmethod
+    def from_struct_def (struct_def:ShaderStructDef) -> 'UBO':
+        elem = []
+        for field_name, field_type in struct_def._fields.items():
+            if not field_type.is_simple_primitive():
+                raise Exception('UBOs with complex types not supported yet!')
+            elem.append(UBOElement(field_name, UBOElement.PRIMITIVE_BASE_ALIGNMENT[field_type.primitive_type], 1, 0))
+        return UBO(struct_def.type_name, elem)
+        # since you don't declare instances for ubos, the type IS the name of the instance
+
+    def __init__(self, shadername, elements: List[UBOElement]):
+        self.shadername = shadername
+        self.ubo = glGenBuffers(1)
+        self.elements = elements  # order matters!
+        self.bind_point = UBO._incremental_bind_point
+        UBO._incremental_bind_point += 1
+        self._keyed_elements: Dict[str, int] = {}
+        self._key()
+        self._update_elements()
+        self.attach_to_ubo_base(self.bind_point)
+    def _update_elements(self):
+        # each element's <offset> must be a multiple of its <base_alignment>
+        if len(self.elements) < 1:
+            return
+        self.elements[0].offset = 0 # always
+        for i in range(1, len(self.elements)):
+            self.elements[i].offset = self.elements[i-1].next_offset(self.elements[i])
+        dummy = UBOElement('dummy', 16, 1, 0)
+        byte_size = self.elements[-1].next_offset(dummy)
+        self.bind()
+        glBufferData(GL_UNIFORM_BUFFER, byte_size, None, GL_DYNAMIC_DRAW)
+        self.unbind()
+
+
+    def _key(self):
+        # perform every time the order or size of the elements changes
+        self._keyed_elements = {}
+        for i in range(0, len(self.elements)):
+            e = self.elements[i]
+            self._keyed_elements[e.name] = i
+
+    def _get_keyed (self, name):
+        return self.elements[self._keyed_elements[name]]
+
+    def add_element (self, elem:UBOElement):
+        self.elements.append(elem)
+        self._key()
+        self._update_elements()
+
+    def edit_element (self, name, raw_data):
+        e = self._get_keyed(name)
+        self.bind()
+        glBufferSubData(GL_UNIFORM_BUFFER, e.offset, e.size(), raw_data)
+        self.unbind()
+
+    def bind(self):
+        glBindBuffer(GL_UNIFORM_BUFFER, self.ubo)
+
+    def unbind(self):
+        glBindBuffer(GL_UNIFORM_BUFFER, 0)
+
+    def attach_to_ubo_base(self, index: int):
+        self.bind()
+        glBindBufferBase(GL_UNIFORM_BUFFER, index, self.ubo)
+        self.unbind()

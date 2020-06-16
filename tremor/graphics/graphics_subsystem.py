@@ -6,7 +6,6 @@ import glm
 from tremor.graphics.ui import menus, hud
 from tremor.graphics.ui.state import UIState
 from tremor.math.transform import Transform
-from tremor.math.vertex_math import norm_vec3
 from tremor.net.client import client_net
 
 OpenGL.USE_ACCELERATE = False
@@ -16,9 +15,8 @@ from imgui.integrations.glfw import GlfwRenderer
 from tremor.core import console
 from tremor.util import glutil, configuration
 from tremor.graphics.shaders import *
-from tremor.graphics.uniforms import *
 from tremor.graphics import screen_utils
-from tremor.math import matrix, vertex_math
+from tremor.math import matrix
 import numpy as np
 
 window = None
@@ -148,6 +146,10 @@ def draw_scene(scene):
     BAD_set_all_uniform_by_property_chain('lights', '1.color', [0, 1, 0])
     BAD_set_all_uniform_by_property_chain('lights', '1.intensity', [1.0])
 
+    ubo.edit_element('scroll_speed', np.array([np.sin(framecount * 0.01)], dtype='float32'))
+    ubo.edit_element('scale_amplitude', np.array([1.0], dtype='float32'))
+    ubo.edit_element('uv_offset', np.array([1, 1], dtype='float32'))
+
     scene.bind_scene_vao()
     for element in scene.entities:
         if element is None:
@@ -228,6 +230,7 @@ def request_close():
 
 
 def _create_uniforms():
+    global ubo
     # Matricies
     # add_primitive_global_uniform('modelViewMatrix', 'mat4')
     add_uniform_to_all_programs(Uniform.as_primitive('modelViewMatrix', 'mat4'))
@@ -245,6 +248,16 @@ def _create_uniforms():
     light_def.set_primitive_field('intensity', 'float')
 
     add_global_uniform(Uniform.as_struct('lights', light_def))
+
+    test_ubo_struct = ShaderStructDef('Test', primitive=False, is_list=False,
+                                      scroll_speed='float',
+                                      scale_amplitude='float',
+                                      uv_offset='vec2')
+
+
+    ubo = UBO.from_struct_def(test_ubo_struct)
+    add_ubo_to_all_programs(ubo)
+
 
 
 def error_callback(error, description):

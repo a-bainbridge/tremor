@@ -149,6 +149,7 @@ def create_shader(type, source) -> object:
     if status == GL_FALSE:
         raise ShaderCompilationError(
             "Compilation failure for %s\n%s" % (str(type), glGetShaderInfoLog(shader).decode()))
+
     return shader
 
 
@@ -196,7 +197,8 @@ class ShaderInput:
         ifndef_expr = regex.compile(r'#ifndef ([\w\d_]+)')
         else_expr = regex.compile(r'#else')
         endif_expr = regex.compile(r'#endif')
-        type_is_texture_expr = regex.compile(r'sampler(2D|3D|Cube)') # https://www.khronos.org/opengl/wiki/Sampler_(GLSL)
+        type_is_texture_expr = regex.compile(
+            r'sampler(2D|3D|Cube)')  # https://www.khronos.org/opengl/wiki/Sampler_(GLSL)
         lines = shader_source.split('\n')
         uniforms = []
         u_dependencies = []
@@ -250,6 +252,7 @@ class ShaderInput:
                     is_texture = True
             shader_inputs.append(ShaderInput(name, typ, default_args, default_value, is_texture, depend))
         return shader_inputs
+
     def __init__(self, name: str, u_type='float', default_args=(), value: tuple = (0.0,), is_texture=False,
                  dependencies: List[str] = ()):
         self.name = name
@@ -307,16 +310,17 @@ class MeshProgram:
         self.uniforms: Dict[str, Uniform] = {}
         self.inputs: List[ShaderInput] = list(inputs)
         self.add_uniforms_from_inputs()
-        self._cached_texture_locations:Dict[str, GLenum] = {}
+        self._cached_texture_locations: Dict[str, GLenum] = {}
         self._cached = False
 
         glAttachShader(self.program, compiled_vertex)
         glAttachShader(self.program, compiled_fragment)
         glLinkProgram(self.program)
         status = glGetProgramiv(self.program, GL_LINK_STATUS)
-        if status == GL_FALSE:
+        if status == GL_FALSE or True:
             print("Linker failure: " + str(glGetProgramInfoLog(self.program)))
-    def use (self):
+
+    def use(self):
         glUseProgram(self.program)
 
     def add_uniforms_from_inputs(self):
@@ -335,20 +339,19 @@ class MeshProgram:
             u_type=ShaderStructDef(name, primitive=True, primitive_type=u_type, is_list=False)
         )
 
-    def add_uniform (self, uniform:Uniform):
+    def add_uniform(self, uniform: Uniform):
         self.uniforms[uniform.name] = uniform
 
-    def refresh_all_global_uniforms (self):
+    def refresh_all_global_uniforms(self):
         for u in self.uniforms.values():
             if u.is_global:
                 u.values_from_other(GLOBAL_UNIFORMS[u.name])
                 u.call_uniform_func()
 
-    def refresh_global_uniform (self, name:str):
+    def refresh_global_uniform(self, name: str):
         u = self.get_uniform(name)
         u.values_from_other(GLOBAL_UNIFORMS[name])
         u.call_uniform_func()
-
 
     def update_uniform(self, name: str, values: list = None):
         # NOTE: make sure this program is being used
@@ -356,7 +359,7 @@ class MeshProgram:
             self.uniforms[name].set_raw_values(values)
         self.uniforms[name].call_uniform_func(values)
 
-    def get_uniform (self, name:str) -> Uniform:
+    def get_uniform(self, name: str) -> Uniform:
         if not name in self.uniforms.keys():
             raise Exception(f'Unknown {name} in program {self.name}')
         return self.uniforms[name]
@@ -379,8 +382,14 @@ class MeshProgram:
         # if not self.check_is_uniform(name): print(f'{name} is not a uniform!')
         return self.uniforms[name].values
 
+    def apply_ubo (self, ubo:'UBO'):
+        index = glGetUniformBlockIndex(self.program, ubo.shadername)
+        if index >= 0:
+            glUniformBlockBinding(self.program, index, ubo.bind_point)
+
+
     # get a material with relevant properties for this shader
-    def create_material(self, name:str=None) -> Material:
+    def create_material(self, name: str = None) -> Material:
         if name is None:
             name = f'{self.name}_mat'
         mat = Material(name)
@@ -389,15 +398,18 @@ class MeshProgram:
             mat.set_property(prop.name, prop.value)
         return mat
 
-    def _update_cache (self, material:Material):
+    def _update_cache(self, material: Material):
         if not self._cached:
             for inp in self.inputs:
                 if inp.is_texture:
                     mat_tex = material.get_mat_texture(inp.texture_type)
-                    self._cached_texture_locations[mat_tex.tex_type] = glGetUniformLocation(self.program, mat_tex.tex_type)
+                    self._cached_texture_locations[mat_tex.tex_type] = glGetUniformLocation(self.program,
+                                                                                            mat_tex.tex_type)
             self._cached = True
-    def invalidate_cache (self):
+
+    def invalidate_cache(self):
         self._cached = False
+
     # set uniforms for this shader from the provided material that are relevant
     def use_material(self, mat: Material):
         # NOTE: make sure this program is being used

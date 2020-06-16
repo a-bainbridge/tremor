@@ -30,6 +30,11 @@ struct Light {
     vec3 color;
     float intensity;
 };
+layout(std140) uniform Test {
+    float scroll_speed;
+    float scale_amplitude;
+    vec2 uv_offset;
+};
 const int maxLights = 10;
 uniform int numLights;
 uniform Light[maxLights] lights;
@@ -70,7 +75,9 @@ void main()
     //v = surface-to-camera vector
 
     #ifdef t_texColor
-    vec4 t = texture2D(texColor, texCoord);
+    vec2 uv = texCoord * (1.+scale_amplitude*sin(time)) + time * scroll_speed * uv_offset;
+//    vec2 uv = texCoord;
+    vec4 t = texture2D(texColor, uv);
     #ifdef maskAlpha
     if (t.a < 0.1) discard;
     #endif
