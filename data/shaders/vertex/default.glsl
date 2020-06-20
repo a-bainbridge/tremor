@@ -18,10 +18,20 @@ out vec2 texCoord2;
 out vec4 cameraPosition;
 
 uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
-uniform mat4 viewMatrix;
+//uniform mat4 projectionMatrix;
+//uniform mat4 viewMatrix;
 
-uniform float time;
+//uniform float time;
+
+layout(std140) uniform Transforms {
+    mat4 projectionMatrix;
+    mat4 viewMatrix;
+};
+
+//layout(std140) uniform Globals {
+//    float time;
+//    mat4 time_like;
+//};
 
 void main()
 {

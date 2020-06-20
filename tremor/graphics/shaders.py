@@ -343,7 +343,8 @@ class MeshProgram:
         self.uniforms[uniform.name] = uniform
 
     def refresh_all_global_uniforms(self):
-        for u in self.uniforms.values():
+        for g in get_queue():
+            u = self.uniforms[g]
             if u.is_global():
                 if u.u_type.is_simple_primitive():
                     self._refresh(u)
@@ -355,8 +356,8 @@ class MeshProgram:
         u = self.get_uniform(name)
         self._refresh(u)
 
-    def _refresh (self, u:Uniform):
-        glob = get_global_uniform(u.name)
+    def _refresh(self, u: Uniform):
+        glob = get_global_uniform_leaf(u.name)
         if glob.no_values(): return
         u.values_from_other(glob)
         u.call_uniform_func()
@@ -390,11 +391,10 @@ class MeshProgram:
         # if not self.check_is_uniform(name): print(f'{name} is not a uniform!')
         return self.uniforms[name].values
 
-    def apply_ubo (self, ubo:'UBO'):
+    def apply_ubo(self, ubo: 'UBO'):
         index = glGetUniformBlockIndex(self.program, ubo.shadername)
         if index >= 0:
             glUniformBlockBinding(self.program, index, ubo.bind_point)
-
 
     # get a material with relevant properties for this shader
     def create_material(self, name: str = None) -> Material:

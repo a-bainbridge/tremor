@@ -113,43 +113,42 @@ def draw_scene(scene):
         transform = scene.current_player_ent.transform
     cam_transform = transform.clone()
     cam_transform.translate_local(np.array([0, 30, 0]))
-    perspective_mat = glm.perspective(glm.radians(90.0), screen_utils.aspect_ratio(), 0.1, 100000.0)
     tmat = cam_transform._get_translation_matrix()
     rmat = cam_transform._get_rotation_matrix()  # fine as long as we never pitch
     a = tmat.dot(rmat.dot(matrix.create_translation_matrix([1, 0, 0])))
     b = tmat.dot(rmat.dot(matrix.create_translation_matrix([0, 1, 0])))
     cam_vec = glm.vec3((matrix.translation_from_matrix(cam_transform.to_model_view_matrix()))[:3])
     point_at = glm.vec3(matrix.translation_from_matrix(a)[:3])
-    up_vec = glm.normalize(glm.vec3(matrix.translation_from_matrix(b)[:3])-cam_vec)
-    view_mat = glm.lookAt(cam_vec, point_at, up_vec)
-    model_mat = np.identity(4, dtype='float32')  # by default, no transformations applied
-    # BAD_update_all_uniform('modelViewMatrix', [1, GL_FALSE, model_mat])
-    # update_global_uniform('modelViewMatrix', model_mat)
-    # BAD_update_all_uniform('viewMatrix', [1, GL_FALSE, np.array(view_mat)])
-    update_global_uniform('viewMatrix', np.array(view_mat))
-    # BAD_update_all_uniform('projectionMatrix', [1, GL_FALSE, np.array(perspective_mat)])
-    update_global_uniform('projectionMatrix', np.array(perspective_mat))
+    up_vec = glm.normalize(glm.vec3(matrix.translation_from_matrix(b)[:3]) - cam_vec)
 
-    # BAD_update_all_uniform('time', [framecount / screen_utils.MAX_FPS])  # seconds # todo: update globals using refresh globals in meshshader on use_material
-    update_global_uniform('time', framecount / screen_utils.MAX_FPS)
+    perspective_mat = np.array(glm.perspective(glm.radians(90.0), screen_utils.aspect_ratio(), 0.1, 100000.0),
+                               dtype='float32')
+    view_mat = np.array(glm.lookAt(cam_vec, point_at, up_vec), dtype='float32')
 
-    # BAD_update_all_uniform('numLights', [2])
-    update_global_uniform('numLights', 2)
-    light_pos = [np.sin(framecount * 0.01) * 50, np.cos(framecount * 0.01) * 50, np.cos(framecount * 0.001)*50]
+    time = framecount / screen_utils.MAX_FPS
+
+    light_pos = [np.sin(framecount * 0.01) * 50, np.cos(framecount * 0.01) * 50, np.cos(framecount * 0.001) * 50]
     swizzled = [light_pos[1], light_pos[0], light_pos[2]]
-    # update_all_uniform('light_pos', light_pos)
-    # BAD_set_all_uniform_by_property_chain('lights', '0.position', light_pos)
-    update_global_uniform('lights[0].position', light_pos)
-    BAD_set_all_uniform_by_property_chain('lights', '0.color', [1, 0, 1])
-    BAD_set_all_uniform_by_property_chain('lights', '0.intensity', [1.0])
 
-    BAD_set_all_uniform_by_property_chain('lights', '1.position', swizzled)
-    BAD_set_all_uniform_by_property_chain('lights', '1.color', [0, 1, 0])
-    BAD_set_all_uniform_by_property_chain('lights', '1.intensity', [1.0])
+    # uniforms and UBOs
+    flush_queue()
 
-    ubo.edit_element('scroll_speed', np.array([np.sin(framecount * 0.01)], dtype='float32'))
-    ubo.edit_element('scale_amplitude', np.array([1.0], dtype='float32'))
-    ubo.edit_element('uv_offset', np.array([1, 1], dtype='float32'))
+    get_global_ubo('Transforms').edit_element('projectionMatrix', perspective_mat)
+    get_global_ubo('Transforms').edit_element('viewMatrix', view_mat)
+
+    get_global_ubo('Globals').edit_element('time', np.array([time], dtype='float32'))
+    get_global_ubo('Globals').edit_element('numLights', np.array([2], dtype='int'))
+
+    update_global_uniform_struct(
+        'lights[0]',
+        position=light_pos,
+        color=[1, 0, 1],
+        intensity=1.0
+    )
+
+    update_global_uniform('lights[1].position', swizzled)
+    update_global_uniform('lights[1].color', [0, 1, 0])
+    update_global_uniform('lights[1].intensity', 1.0)
 
     scene.bind_scene_vao()
     for element in scene.entities:
@@ -231,34 +230,29 @@ def request_close():
 
 
 def _create_uniforms():
-    global ubo
     # Matricies
-    # add_primitive_global_uniform('modelViewMatrix', 'mat4')
     add_uniform_to_all_programs(Uniform.as_primitive('modelViewMatrix', 'mat4'))
-    add_primitive_global_uniform('projectionMatrix', 'mat4')
-    add_primitive_global_uniform('viewMatrix', 'mat4')
 
-    # env
-    add_primitive_global_uniform('time', 'float')
-
-    # other
-    add_primitive_global_uniform('numLights', 'int')
-    light_def = ShaderStructDef('Light', primitive=False, is_list=True, list_length=10, is_global=True)
+    # struct uniforms
+    light_def = ShaderStructDef('Light', primitive=False, is_list=True, list_length=128, is_global=True)
     light_def.set_primitive_field('position', 'vec3')
     light_def.set_primitive_field('color', 'vec3')
     light_def.set_primitive_field('intensity', 'float')
 
     add_global_uniform(Uniform.as_struct('lights', light_def))
 
-    test_ubo_struct = ShaderStructDef('Test', primitive=False, is_list=False,
-                                      scroll_speed='float',
-                                      scale_amplitude='float',
-                                      uv_offset='vec2')
+    # ubos
+    transforms_struct = ShaderStructDef('Transforms', primitive=False, is_list=False)
+    transforms_struct.set_primitive_field('projectionMatrix', 'mat4')
+    transforms_struct.set_primitive_field('viewMatrix', 'mat4')
 
+    add_global_ubo(UBO.from_struct_def(transforms_struct))
 
-    ubo = UBO.from_struct_def(test_ubo_struct)
-    add_ubo_to_all_programs(ubo)
+    other_globals_struct = ShaderStructDef('Globals', primitive=False, is_list=False)
+    other_globals_struct.set_primitive_field('time', 'float')
+    other_globals_struct.set_primitive_field('numLights', 'int')
 
+    add_global_ubo(UBO.from_struct_def(other_globals_struct))
 
 
 def error_callback(error, description):

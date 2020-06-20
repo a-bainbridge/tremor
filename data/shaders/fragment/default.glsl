@@ -23,20 +23,18 @@ uniform sampler2D texMetallic;//mat
 #endif
 
 //globals
-uniform float time;
+//uniform float time;
 
 struct Light {
     vec3 position;
     vec3 color;
     float intensity;
 };
-layout(std140) uniform Test {
-    float scroll_speed;
-    float scale_amplitude;
-    vec2 uv_offset;
-} test;
-const int maxLights = 10;
-uniform int numLights;
+layout(std140) uniform Globals {
+    float time;
+    int numLights;
+};
+const int maxLights = 128;
 uniform Light[maxLights] lights;
 const vec3 ambient = vec3(0.7);
 
@@ -75,9 +73,7 @@ void main()
     //v = surface-to-camera vector
 
     #ifdef t_texColor
-    vec2 uv = texCoord * (1.+test.scale_amplitude*sin(time)) + time * test.scroll_speed * test.uv_offset;
-//    vec2 uv = texCoord;
-    vec4 t = texture2D(texColor, uv);
+    vec4 t = texture2D(texColor, texCoord);
     #ifdef maskAlpha
     if (t.a < 0.1) discard;
     #endif
