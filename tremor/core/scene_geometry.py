@@ -24,9 +24,14 @@ def check_ccw(v0, v1, v2, p):
         print("bad normal detected!")
 
 
+class Side:
+    pass
+
+
 class Brush:
 
     def __init__(self, planes):
+        self.contents = 0
         self.planes = planes
 
     def point_in_brush(self, point, epsilon=0.0001):
@@ -51,8 +56,8 @@ class Brush:
                 continue
             candidate_points.append(plausible_point)
         if len(candidate_points) == 1:
-            return candidate_points[0][0],\
-                   magnitude_vec3(ray_origin - candidate_points[0][0]) / distance,\
+            return candidate_points[0][0], \
+                   magnitude_vec3(ray_origin - candidate_points[0][0]) / distance, \
                    candidate_points[0][1]
         if len(candidate_points) == 0:
             return None, None, None
@@ -76,8 +81,6 @@ class Brush:
             j = 0
             for p2 in self.planes:
                 j += 1
-                # if i > j:
-                #    continue
                 k = 0
                 for p3 in self.planes:
                     k += 1
@@ -85,9 +88,9 @@ class Brush:
                         continue
                     point = p1.intersect_point(p2, p3)
                     if point is not None and self.point_in_brush(point):
-                        # print(i,j,k)
                         p1_points.append(point)
             if len(p1_points) < 3:
+                all_points.append([])
                 continue
             com = center_of_mass(p1_points)
             vals = []
@@ -116,3 +119,18 @@ class Brush:
             quad_4.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
             all_points.append([p1_points[p] for p in quad_1 + quad_2 + quad_3 + quad_4])
         return all_points
+
+    def make_faces(self):
+        verts_tmp = self.get_vertices()
+        self.sides = []
+        i = 0
+        for plane in self.planes:
+            side = Side()
+            self.contents |= plane.content
+            side.surface = plane.surface
+            side.texture_name = plane.texture_name
+            side.texture_attributes = plane.texture_attributes
+            side.vertices = verts_tmp[i]
+            side.plane = plane
+            self.sides.append(side)
+            i += 1

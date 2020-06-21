@@ -27,12 +27,9 @@ def parse_side(string):
         plane_points.append(np.array([point[1], point[2], point[0]], dtype='float32'))
     plane = Plane.plane_from_points_quake_style(plane_points)
     plane.texture_name = temp[15]
-    # 0 0 0 0.1 0.1
     plane.texture_attributes = (float(temp[19]), float(temp[20]), float(temp[16]), float(temp[17]), float(temp[18]))
     plane.content = int(temp[21])
     plane.surface = int(temp[22])
-    # todo load scale and offset and rotation, lol
-    # todo and flags!
     return plane
 
 
@@ -190,6 +187,94 @@ def calculate_uv(texture_size, normal, point, texture_attributes):
     v /= texture_size[1]
     return u, v
 
+def pre_process(ents):
+    worldspawn_ent = None
+    for ent in ents:
+        if ent["classname"] == "info_player_start":
+            sp = ent["origin"].split(" ")
+            contained_point = np.array([float(sp[1]), float(sp[2]), -float(sp[0])])
+            print(contained_point)
+        if ent["classname"] == "worldspawn":
+            worldspawn_ent = ent
+    for brush in worldspawn_ent["brushes"]:
+        brush.make_faces()
+    return worldspawn_ent
+
+
+class Face:
+    pass
+
+# https://github.com/TTimo/doom3.gpl/blob/master/neo/tools/compilers/dmap/facebsp.cpp
+def make_structural_face_list(brushes):
+    faces = []
+    for brush in brushes:
+        for side in brush.sides:
+            if len(side.vertices) == 0:
+                continue
+            face = Face()
+            face.plane = side.plane
+            face.verts = side.vertices
+            faces.append(face)
+    return faces
+
+class Bounds:
+    def __init__(self, mins, maxs):
+        self.mins = mins
+        self.maxs = maxs
+    @staticmethod
+    def min_bounds():
+        return Bounds(np.array([0,0,0]), np.array([0,0,0]))
+    def test_point_included(self, point):
+        cleared_min = point[0] >= self.mins[0] and point[1] >= self.mins[1] and point[2] >= self.mins[2]
+        cleared_max = point[0] <= self.maxs[0] and point[1] <= self.maxs[1] and point[2] >= self.maxs[2]
+        return cleared_min, cleared_max
+    def grow_max(self, point):
+        self.maxs[0] = max(self.maxs[0], point[0])
+        self.maxs[1] = max(self.maxs[1], point[1])
+        self.maxs[2] = max(self.maxs[2], point[2])
+
+    def include_point(self, point):
+        cleared_min, cleared_max = self.test_point_included(point)
+        if cleared_min and cleared_max:
+            return
+        if not cleared_min and not cleared_max:
+            raise Exception()
+        if cleared_min:
+            self.grow_max(point)
+        else:
+            self.grow_min(point)
+
+
+
+class Tree:
+    def __init__(self):
+        self.head = None
+        self.outside_node = None
+        self.bounds =
+    pass
+
+class Node:
+    def __init__(self, parent, plane):
+        self.children = [None, None]
+        self.parent = parent
+        self.opaque = False
+        self.leaf = False
+        self.plane = plane
+        self.brushes = []
+        self.bounds
+    pass
+
+def select_split_plane(node, faces):
+
+
+def build_tree(node, faces):
+    split_plane = select_split_plane(node, faces)
+
+def face_bsp(faces):
+    tree = Tree()
+    tree.head = Node(None, None)
+    build_tree(tree.head, faces)
+    return tree
 
 def main(args):
     print("loading texture cache")
@@ -201,15 +286,9 @@ def main(args):
     output_file.write(HEADER)
     parse_time = time.time()
     ents = parse_map_file(args.map)
-    contained_point = None
-    worldspawn_ent = None
-    for ent in ents:
-        if ent["classname"] == "info_player_start":
-            sp = ent["origin"].split(" ")
-            contained_point = np.array([float(sp[1]), float(sp[2]), -float(sp[0])])
-            print(contained_point)
-        if ent["classname"] == "worldspawn":
-            worldspawn_ent = ent
+    world_ent = pre_process(ents)
+    world_structural_faces = make_structural_face_list(world_ent["brushes"])
+    world_ent["tree"] = face_bsp(world_structural_faces)
     parse_time = time.time() - parse_time
     raw_verts = []
     raw_faces = []
