@@ -80,6 +80,8 @@ def load_scene_file(mapname, filename, make_geometry) -> Scene:
     i = 0
     if make_geometry:
         from tremor.loader.texture_loading import load_texture_by_name
+        # FIXME do not commit!
+        load_texture_by_name("defaults/missing.png", 0)
         for texture in texture_chunk.items:
             load_texture_by_name(str(texture.name, 'utf-8').strip('\0'), i)
             i += 1

@@ -110,10 +110,12 @@ framecount = 0
 
 def draw_scene(scene):
     global framecount
-    glClearColor(0.0, 0.0, 0.0, 0.0)
+    glClearColor(1.0, 20/255, 147/255, 0.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     if scene is None:
         return
+
+    # glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
     glUseProgram(0)
     if scene.current_player_ent is None:
         transform = Transform(None)

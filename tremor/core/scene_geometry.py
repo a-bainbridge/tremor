@@ -33,6 +33,7 @@ class Brush:
     def __init__(self, planes):
         self.contents = 0
         self.planes = planes
+        self.windings = None
 
     def point_in_brush(self, point, epsilon=0.0001):
         for p in self.planes:
@@ -72,7 +73,7 @@ class Brush:
                 plane = p[1]
         return closest_candidate, closest_dist / distance, plane
 
-    def get_vertices(self):
+    def gen_vertices(self):
         all_points = []
         i = 0
         for p1 in self.planes:
@@ -92,16 +93,31 @@ class Brush:
             if len(p1_points) < 3:
                 all_points.append([])
                 continue
-            com = center_of_mass(p1_points)
+            all_points.append(p1_points)
+        self.windings = all_points
+        self.wind()
+
+    def get_vertices(self):
+        return self.windings
+
+    def wind(self, ccw=True):
+        j = 0
+        all_points = []
+        for face in self.windings:
+            if len(face) == 0:
+                all_points.append([])
+                j += 1
+                continue
+            com = center_of_mass(face)
             vals = []
-            tangent_vec = norm_vec3(p1_points[0] - com)
+            tangent_vec = norm_vec3(face[0] - com)
             quad_1 = []
             quad_2 = []
             quad_3 = []
             quad_4 = []
-            for i in range(0, len(p1_points)):
-                point = norm_vec3(p1_points[i] - com)
-                values = (p1.point_dist(np.cross(tangent_vec, point) + com), tangent_vec.dot(point))
+            for i in range(0, len(face)):
+                point = norm_vec3(face[i] - com)
+                values = (self.planes[j].point_dist(np.cross(tangent_vec, point) + com), tangent_vec.dot(point))
                 if values[0] >= 0:
                     if values[1] >= 0:
                         quad_1.append(i)
@@ -117,10 +133,13 @@ class Brush:
             quad_2.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
             quad_3.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
             quad_4.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
-            all_points.append([p1_points[p] for p in quad_1 + quad_2 + quad_3 + quad_4])
-        return all_points
+            all_points.append([self.windings[j][p] for p in quad_1 + quad_2 + quad_3 + quad_4])
+            j += 1
+        self.windings = all_points
 
     def make_faces(self):
+        if self.windings is None:
+            self.gen_vertices()
         verts_tmp = self.get_vertices()
         self.sides = []
         i = 0

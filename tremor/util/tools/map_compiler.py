@@ -1,10 +1,15 @@
 import argparse
 import io
+import math
 import sys
 import time
 
-from tremor.core.scene_geometry import Brush, Plane
+from tremor.core.scene_geometry import Brush, Plane, center_of_mass
 from tremor.loader.scene.scene_types import *
+from tremor.math.geometry import PlaneSide
+from tremor.math.vertex_math import norm_vec3, magnitude_vec3
+
+EPSILON = 1 / 32
 
 
 def parse_side(string):
@@ -187,6 +192,7 @@ def calculate_uv(texture_size, normal, point, texture_attributes):
     v /= texture_size[1]
     return u, v
 
+
 def pre_process(ents):
     worldspawn_ent = None
     for ent in ents:
@@ -202,7 +208,195 @@ def pre_process(ents):
 
 
 class Face:
-    pass
+    def __init__(self):
+        self.verts: List[List] = None
+        self.checked = False
+        self.plane = None
+
+    # must be wound properly before this!
+    def is_very_small(self):
+        EDGE_EPSILON = 0.2
+        edge_count = 0
+        for i in range(0, len(self.verts)):
+            delta = np.array(self.verts[(i + 1) % len(self.verts)]) - np.array(self.verts[i])
+            length = magnitude_vec3(delta)
+            if length > EDGE_EPSILON:
+                edge_count += 1
+                if edge_count == 3:
+                    return False
+        return True
+
+    @staticmethod
+    def from_plane(plane):
+        hugeness_factor = 1E10
+        face = Face()
+        face.plane = plane
+        verts = [None] * 4
+        d = plane.normal[0] * plane.normal[0] + plane.normal[1] * plane.normal[1]
+        if d == 0:
+            left = np.array([1, 0, 0], dtype=np.float32)
+        else:
+            left = 1 / math.sqrt(d) * np.array([-plane.normal[1], plane.normal[0], 0], dtype=np.float32)
+        down = np.cross(left, plane.normal)
+        left *= hugeness_factor
+        down *= hugeness_factor
+        verts[0] = plane.point - left + down
+        verts[1] = plane.point + left + down
+        verts[2] = plane.point + left - down
+        verts[3] = plane.point - left - down
+        face.verts = verts
+        face.wind()
+        return face
+
+    def wind(self, ccw=True):
+        verts_copy = []
+        com = center_of_mass(self.verts)
+        vals = []
+        tangent_vec = norm_vec3(np.array(self.verts[0]) - com)
+        quad_1 = []
+        quad_2 = []
+        quad_3 = []
+        quad_4 = []
+        for i in range(0, len(self.verts)):
+            point = norm_vec3(np.array(self.verts[i]) - com)
+            values = (self.plane.point_dist(np.cross(tangent_vec, point) + com), tangent_vec.dot(point))
+            if values[0] >= 0:
+                if values[1] >= 0:
+                    quad_1.append(i)
+                else:
+                    quad_2.append(i)
+            else:
+                if values[1] < 0:
+                    quad_3.append(i)
+                else:
+                    quad_4.append(i)
+            vals.append(values)
+        quad_1.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
+        quad_2.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
+        quad_3.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
+        quad_4.sort(key=lambda x: (-1 if vals[x][0] < 0 else 1) * vals[x][1], reverse=True)
+        verts_copy.append([self.verts[p] for p in quad_1 + quad_2 + quad_3 + quad_4])
+        self.verts = verts_copy[0]
+
+    def clip(self, plane, epsilon):
+        distances = [0] * (len(self.verts) + 1)
+        sides = [0] * (len(self.verts) + 1)
+        counts = [0, 0, 0]
+        for i in range(0, len(self.verts)):
+            dist = plane.point_dist(self.verts[i])
+            distances[i] = dist
+            if dist > epsilon:
+                sides[i] = PlaneSide.SIDE_FRONT
+            elif dist < -epsilon:
+                sides[i] = PlaneSide.SIDE_BACK
+            else:
+                sides[i] = PlaneSide.SIDE_ON
+            counts[sides[i]] += 1
+        sides[len(self.verts)] = sides[0]
+        distances[len(self.verts)] = distances[0]
+        if counts[PlaneSide.SIDE_FRONT] == 0:
+            return self # is this bad?
+        if counts[PlaneSide.SIDE_BACK] == 0:
+            return self
+        maxpoints = len(self.verts) + 4
+        new_verts = []
+        for i in range(0, len(self.verts)):
+            p1 = self.verts[i]
+            if len(new_verts) + 1 > maxpoints:
+                return self
+            if sides[i] == PlaneSide.SIDE_ON:
+                new_verts.append(p1)
+                continue
+            if sides[i] == PlaneSide.SIDE_FRONT:
+                new_verts.append(p1)
+            if sides[i + 1] == PlaneSide.SIDE_ON or sides[i + 1] == sides[i]:
+                continue
+            if len(new_verts) + 1 > maxpoints:
+                return self
+            p2 = self.verts[(i + 1) % len(self.verts)]
+            dot = distances[i] / (distances[i] - distances[i + 1])
+            midpoint = [0, 0, 0]
+            for j in range(0, 3):
+                if plane.normal[j] == 1:
+                    midpoint[j] = plane.d()
+                elif plane.normal[j] == -1:
+                    midpoint[j] = -plane.d()
+                else:
+                    midpoint[j] = p1[j] + dot * (p2[j] - p1[j])
+                # todo do uv calculations before this and interpolate?
+            new_verts.append(midpoint)
+        self.verts = new_verts
+        self.wind()
+        return self
+
+    def split(self, plane, epsilon):
+        distances = [0] * (len(self.verts) + 1)
+        sides = [0] * (len(self.verts) + 1)
+        counts = [0, 0, 0]
+        for i in range(0, len(self.verts)):
+            dist = plane.point_dist(self.verts[i])
+            distances[i] = dist
+            if dist > epsilon:
+                sides[i] = PlaneSide.SIDE_FRONT
+            elif dist < -epsilon:
+                sides[i] = PlaneSide.SIDE_BACK
+            else:
+                sides[i] = PlaneSide.SIDE_ON
+            counts[sides[i]] += 1
+        sides[len(self.verts)] = sides[0]
+        distances[len(self.verts)] = distances[0]
+        if counts[PlaneSide.SIDE_FRONT] == 0 and counts[PlaneSide.SIDE_BACK] == 0:
+            # coplanar
+            if plane.normal.dot(self.plane.normal) > 0:
+                return self.verts, None
+            else:
+                return None, self.verts
+        if counts[PlaneSide.SIDE_FRONT] == 0:
+            return None, self.verts
+        if counts[PlaneSide.SIDE_BACK] == 0:
+            return self.verts, None
+        front_verts = []
+        back_verts = []
+        for i in range(0, len(self.verts)):
+            p1 = self.verts[i]
+            if sides[i] == PlaneSide.SIDE_ON:
+                front_verts.append(p1)
+                back_verts.append(p1)
+                continue
+            if sides[i] == PlaneSide.SIDE_FRONT:
+                front_verts.append(p1)
+            if sides[i] == PlaneSide.SIDE_BACK:
+                back_verts.append(p1)
+            # don't generate a splitter point if we won't cross the plane
+            if sides[i + 1] == PlaneSide.SIDE_ON or sides[i + 1] == sides[i]:
+                continue
+            p2 = self.verts[(i + 1) % len(self.verts)]
+
+            if sides[i] == PlaneSide.SIDE_FRONT:
+                dot = distances[i] / (distances[i] - distances[i + 1])
+                midpoint = [0, 0, 0]
+                for j in range(0, 3):
+                    if plane.normal[j] == 1:
+                        midpoint[j] = plane.d()
+                    elif plane.normal[j] == -1:
+                        midpoint[j] = -plane.d()
+                    else:
+                        midpoint[j] = p1[j] + dot * (p2[j] - p1[j])
+                # todo do uv calculations before this and interpolate?
+            else:
+                dot = distances[i + 1] / (distances[i + 1] - distances[i])
+                midpoint = [0, 0, 0]
+                for j in range(0, 3):
+                    if plane.normal[j] == 1:
+                        midpoint[j] = plane.d()
+                    elif plane.normal[j] == -1:
+                        midpoint[j] = -plane.d()
+                    else:
+                        midpoint[j] = p2[j] + dot * (p1[j] - p2[j])
+            front_verts.append(midpoint)
+            back_verts.append(midpoint)
+        return front_verts, back_verts
+
 
 # https://github.com/TTimo/doom3.gpl/blob/master/neo/tools/compilers/dmap/facebsp.cpp
 def make_structural_face_list(brushes):
@@ -214,67 +408,421 @@ def make_structural_face_list(brushes):
             face = Face()
             face.plane = side.plane
             face.verts = side.vertices
+            # face.wind() todo this one is probably unnecessary
+            # face.portal = False
             faces.append(face)
     return faces
+
 
 class Bounds:
     def __init__(self, mins, maxs):
         self.mins = mins
         self.maxs = maxs
+
+    def __getitem__(self, item):
+        if item == 0:
+            return self.mins
+        else:
+            return self.maxs
+
     @staticmethod
     def min_bounds():
-        return Bounds(np.array([0,0,0]), np.array([0,0,0]))
+        b = Bounds(None, None)
+        b.clear()
+        return b
+
+    def clear(self):
+        self.mins = np.array([float("inf"), float("inf"), float("inf")])
+        self.maxs = np.array([-float("inf"), -float("inf"), -float("inf")])
+
     def test_point_included(self, point):
-        cleared_min = point[0] >= self.mins[0] and point[1] >= self.mins[1] and point[2] >= self.mins[2]
-        cleared_max = point[0] <= self.maxs[0] and point[1] <= self.maxs[1] and point[2] >= self.maxs[2]
-        return cleared_min, cleared_max
-    def grow_max(self, point):
+        return (point[0] >= self.mins[0] and point[0] <= self.maxs[0]) and (
+                    point[1] >= self.mins[1] and point[1] <= self.maxs[1]) and (
+                           point[2] >= self.mins[2] and point[2] <= self.maxs[2])
+
+    def grow_to_include(self, point):
         self.maxs[0] = max(self.maxs[0], point[0])
         self.maxs[1] = max(self.maxs[1], point[1])
         self.maxs[2] = max(self.maxs[2], point[2])
+        self.mins[0] = min(self.mins[0], point[0])
+        self.mins[1] = min(self.mins[1], point[1])
+        self.mins[2] = min(self.mins[2], point[2])
 
     def include_point(self, point):
-        cleared_min, cleared_max = self.test_point_included(point)
-        if cleared_min and cleared_max:
+        inside = self.test_point_included(point)
+        if inside:
             return
-        if not cleared_min and not cleared_max:
-            raise Exception()
-        if cleared_min:
-            self.grow_max(point)
-        else:
-            self.grow_min(point)
+        self.grow_to_include(point)
 
+    def copy(self):
+        return Bounds(np.array([*self.mins]), np.array([*self.maxs]))
 
 
 class Tree:
     def __init__(self):
         self.head = None
         self.outside_node = None
-        self.bounds =
+        self.bounds = Bounds.min_bounds()
+
     pass
 
+
 class Node:
-    def __init__(self, parent, plane):
+    def __init__(self, parent):
         self.children = [None, None]
         self.parent = parent
         self.opaque = False
         self.leaf = False
-        self.plane = plane
+        self.plane = None
         self.brushes = []
-        self.bounds
+        self.bounds = None
+        self.portals = []
     pass
 
+
+class Portal:
+    def __init__(self):
+        self.nodes = [None, None]
+        self.winding: Face = None
+        self.onnode = None
+
+    def add_to_nodes(self, front, back):
+        if self.nodes[0] is not None or self.nodes[1] is not None:
+            raise Exception("Already in nodes")
+        self.nodes[0] = front
+        front.portals.append(self)
+        self.nodes[1] = back
+        back.portals.append(self)
+
+    def remove_from_node(self, node):
+        node.portals.remove(self)
+        if node == self.nodes[0]:
+            self.nodes[0] = None
+        if node == self.nodes[1]:
+            self.nodes[1] = None
+
+
+BLOCK_SIZE = 1024
+
+
 def select_split_plane(node, faces):
+    if len(faces) == 0:
+        return None
+    halfSize = (node.bounds.maxs - node.bounds.mins) * 0.5
+    for axis in range(0, 3):
+        if halfSize[axis] > BLOCK_SIZE:
+            dist = BLOCK_SIZE * (math.floor((node.bounds.mins[axis] + halfSize[axis]) / BLOCK_SIZE) + 1.0)
+        else:
+            dist = BLOCK_SIZE * (math.floor(node.bounds.mins[axis] / BLOCK_SIZE) + 1.0)
+        if dist > node.bounds.mins[axis] + 1 and dist < node.bounds.maxs[axis] - 1.0:
+            abcd = [0, 0, 0, -dist]
+            abcd[axis] = 1.0
+            plane = Plane.plane_from_abcd(abcd)
+            return plane
+    bestVal = -999999
+    bestSplit = faces[0].plane
+    # havePortals = False
+    for face in faces:
+        face.checked = False
+        # if face.portal:
+        #     havePortals = True
+    for face_splitter in faces:
+        if face_splitter.checked:
+            continue
+        # if havePortals != split.portal:
+        #     continue
+        splits = 0
+        facing = 0
+        front = 0
+        back = 0
+        face_splitter_plane = face_splitter.plane
+        for check_face in faces:
+            if check_face.plane == face_splitter.plane:
+                facing += 1  # handles the ON case i suppose
+                check_face.checked = True
+                continue
+            side = check_face.plane.side(face_splitter_plane)
+            if side == PlaneSide.SIDE_CROSS:
+                splits += 1
+            elif side == PlaneSide.SIDE_FRONT:
+                front += 1
+            elif side == PlaneSide.SIDE_BACK:
+                back += 1
+        face_val = 5 * facing - 5 * splits  # heuristic!
+        if face_splitter_plane.is_axial():
+            face_val += 5  # weight axial planes higher!
+        if face_val > bestVal:
+            bestVal = face_val
+            bestSplit = face_splitter
+    if bestVal == -999999:
+        return None
+    return bestSplit.plane
 
 
-def build_tree(node, faces):
+leaf_counter = 0
+CLIP_EPSILON = 0.1
+
+
+def build_tree(node, faces, outfaces):
+    global leaf_counter
     split_plane = select_split_plane(node, faces)
+    if split_plane is None:
+        node.leaf = True
+        return
+    node.plane = split_plane
+    children = [[], []]
+    for face in faces:
+        if face.plane == node.plane:
+            # face is destroyed
+            continue
+        side = face.plane.side(node.plane)
+        if side == PlaneSide.SIDE_CROSS:
+            front_winding, back_winding = face.split(node.plane, CLIP_EPSILON * 2)
+            if front_winding is not None:
+                newface = Face()
+                newface.verts = front_winding
+                newface.plane = face.plane
+                newface.wind() # todo remove the need to do this
+                children[0].append(newface)
+                outfaces.append(newface)
+            if back_winding is not None:
+                newface = Face()
+                newface.verts = back_winding
+                newface.plane = face.plane
+                newface.wind()  # todo remove the need to do this
+                children[1].append(newface)
+                outfaces.append(newface)
+        elif side == PlaneSide.SIDE_FRONT:
+            children[0].append(face)
+            outfaces.append(face)
+        elif side == PlaneSide.SIDE_BACK:
+            children[1].append(face)
+            outfaces.append(face)
+    for i in range(0, 2):
+        node.children[i] = Node(node)
+        node.children[i].bounds = node.bounds.copy()
+
+    for i in range(0, 3):
+        if abs(split_plane.normal[i] - 1) < 0.001:
+            node.children[0].bounds.mins[i] = split_plane.d()
+            node.children[1].bounds.maxs[i] = split_plane.d()
+            break
+
+    for i in range(0, 2):
+        build_tree(node.children[i], children[i], outfaces)
+
 
 def face_bsp(faces):
+    global leaf_counter
+    leaf_counter = 0
     tree = Tree()
-    tree.head = Node(None, None)
-    build_tree(tree.head, faces)
-    return tree
+    for face in faces:
+        for vert in face.verts:
+            tree.bounds.include_point(vert)
+    tree.head = Node(None)
+    tree.head.bounds = tree.bounds
+    new_face_list = []
+    build_tree(tree.head, faces, new_face_list)
+    return tree, new_face_list
+
+
+padding = 8
+
+
+def make_head_portals(tree):
+    node = tree.head
+    tree.outside_node = Node(None)
+    tree.outside_node.opaque = False
+    portals = [None] * 6
+    planes = [None] * 6
+    if node.leaf:
+        return
+    new_bounds = Bounds(np.array([-padding, -padding, -padding]) + tree.bounds.mins,
+                        np.array([padding, padding, padding]) + tree.bounds.maxs)
+    for i in range(0, 3):
+        for j in range(0, 2):
+            n = j * 3 + i
+            p = Portal()
+            if j == 1:
+                plane = [0, 0, 0, new_bounds[j][i]]
+                plane[i] = -1
+            else:
+                plane = [0, 0, 0, -new_bounds[j][i]]
+                plane[i] = 1
+            p.plane = Plane.plane_from_abcd(plane)
+            planes[n] = p.plane
+            p.winding = Face.from_plane(p.plane)
+            portals[n] = p
+            p.add_to_nodes(node, tree.outside_node)
+    for portal in portals:
+        if portal.winding is None:
+            print("WTF!")
+    for i in range(0, 6):
+        for j in range(0, 6):
+            if i == j:
+                continue
+            portals[i].winding = portals[i].winding.clip(planes[j], CLIP_EPSILON)
+
+def calculate_node_bounds(node):
+    node.bounds.clear()
+    if len(node.portals) == 0:
+        return
+    idx = 0
+    cur_portals = node.portals
+    portal = node.portals
+    while True:
+        if idx == len(portal):
+            return
+        portal = portal[idx]
+        for vert in portal.winding.verts:
+            node.bounds.include_point(vert)
+        s = portal.nodes[1] == node
+        portal = portal.nodes[1].portals if s else portal.nodes[0].portals
+        if portal == cur_portals:
+            idx += 1
+        else:
+            idx = 0
+            cur_portals = portal
+
+WIND_EPSILON = 0.001
+def base_winding_for_node(node):
+    winding = Face.from_plane(node.plane)
+    cur_node = node
+    while True:
+        if cur_node.parent is not None:
+            cur_node = cur_node.parent
+        else:
+            break
+        if cur_node.children[0] == node:
+            winding = winding.clip(cur_node.plane, WIND_EPSILON)
+        else:
+            winding = winding.clip(cur_node.plane.new_reversed(), WIND_EPSILON)
+        node = cur_node
+    return winding
+
+def split_node_portals(node):
+    front_child = node.children[0]
+    back_child = node.children[1]
+    if len(node.portals) == 0:
+        return
+    portals = node.portals
+    pidx = -1
+    while True:
+        pidx += 1
+        if len(portals) <= pidx:
+            break
+        print(pidx)
+        portal = portals[pidx]
+        if portal.nodes[0] == node:
+            side = 0
+        else:
+            side = 1
+        next_portals = portal.nodes[side].portals
+        if next_portals != portals:
+            pidx = -1
+            portals = next_portals
+        other_node = portal.nodes[1 if side == 0 else 1]
+        portal.remove_from_node(portal.nodes[0])
+        portal.remove_from_node(portal.nodes[1])
+        front_wind_v, back_wind_v = portal.winding.split(node.plane, WIND_EPSILON)
+        if front_wind_v is not None:
+            front_wind = Face()
+            front_wind.verts = front_wind_v
+            front_wind.plane = node.plane
+            front_wind.wind() #todo no?
+        else:
+            front_wind = None
+        if back_wind_v is not None:
+            back_wind = Face()
+            back_wind.verts = back_wind_v
+            back_wind.plane = node.plane
+            back_wind.wind() #todo no?
+        else:
+            back_wind = None
+        if front_wind is not None and front_wind.is_very_small():
+            front_wind = None
+        if back_wind is not None and back_wind.is_very_small():
+            back_wind = None
+        if front_wind is None and back_wind is None:
+            continue
+        if front_wind is None:
+            if side == 0:
+                portal.add_to_nodes(back_child, other_node)
+            else:
+                portal.add_to_nodes(other_node, back_child)
+            continue
+        if back_wind is None:
+            if side == 0:
+                portal.add_to_nodes(front_child, other_node)
+            else:
+                portal.add_to_nodes(other_node, front_child)
+            continue
+        new_portal = Portal()
+        new_portal.onnode = portal.onnode
+        new_portal.winding = back_wind
+        portal.winding = front_wind
+        if side == 0:
+            portal.add_to_nodes(front_child, other_node)
+            new_portal.add_to_nodes(back_child, other_node)
+        else:
+            portal.add_to_nodes(other_node, front_child)
+            new_portal.add_to_nodes(other_node, back_child)
+    node.portals = []
+
+
+def make_node_portal(node):
+    winding = base_winding_for_node(node)
+    idx = 0
+    cur_portals = node.portals
+    portal = node.portals
+    while True:
+        if idx == len(portal):
+            break
+        portal = portal[idx]
+        plane = portal.winding.plane
+        if portal.nodes[0] == node:
+            side = 0
+        elif portal.nodes[1] == node:
+            side = 1
+        else:
+            print("Wrong portal?")
+        winding = winding.clip(plane, CLIP_EPSILON)
+        if winding is None:
+            return
+        portal = portal.nodes[side].portals
+        if portal == cur_portals:
+            idx += 1
+        else:
+            idx = 0
+            cur_portals = portal
+    if winding.is_very_small():
+        return
+    new_portal = Portal()
+    new_portal.plane = node.plane
+    new_portal.onnode = node
+    new_portal.winding = winding
+    new_portal.add_to_nodes(node.children[0], node.children[1])
+
+
+def make_tree_portals_recursive(node):
+    calculate_node_bounds(node)
+    for i in range(0, 3):
+        if node.bounds.mins[i] <= -1E10 or node.bounds.maxs[i] >= 1E10:
+            print("bad bounds")
+            break
+    if node.leaf:
+        return
+    make_node_portal(node)
+    split_node_portals(node)
+
+    for i in range(0, 2):
+        make_tree_portals_recursive(node.children[i])
+
+
+def make_tree_portals(tree):
+    make_head_portals(tree)
+    make_tree_portals_recursive(tree.head)
+
 
 def main(args):
     print("loading texture cache")
@@ -288,7 +836,8 @@ def main(args):
     ents = parse_map_file(args.map)
     world_ent = pre_process(ents)
     world_structural_faces = make_structural_face_list(world_ent["brushes"])
-    world_ent["tree"] = face_bsp(world_structural_faces)
+    tree, faces = face_bsp(world_structural_faces)
+    # make_tree_portals(tree)
     parse_time = time.time() - parse_time
     raw_verts = []
     raw_faces = []
@@ -299,8 +848,42 @@ def main(args):
     raw_brushes = []
     raw_brush_sides = []
     generate_time = time.time()
-    int_time = 0
     for ent in ents:
+        if ent == world_ent:
+            face_start = len(raw_faces)
+            face_count = 0
+            for brush in ent["brushes"]:
+                plane_start = len(raw_planes)
+                plane_count = 0
+                brush_side_start = len(raw_brush_sides)
+                brush_side_count = len(brush.planes)
+                content_flag = 0
+                for plane in brush.planes:
+                    raw_planes.append(RawPlane(plane.point, plane.normal))
+                    content_flag |= plane.content
+                    raw_brush_sides.append(RawBrushSide(plane_start + plane_count, plane.surface))
+                    plane_count += 1
+                raw_brushes.append(RawBrush(content_flag, brush_side_start, brush_side_count))
+            for face in faces:
+                raw_vert_start = len(raw_verts)
+                raw_mesh_start = len(raw_mesh_verts)
+                raw_mesh_count = 0
+                for i in range(0, len(face.verts)):
+                    raw_verts.append(
+                        RawVertex(face.verts[i], face.plane.normal, np.array([0, 0], dtype='float32')))
+                for i in range(2, len(face.verts)):
+                    raw_mesh_verts.append(RawModelVertex(raw_vert_start))
+                    raw_mesh_verts.append(RawModelVertex(raw_vert_start + i - 1))
+                    raw_mesh_verts.append(RawModelVertex(raw_vert_start + i))
+                    raw_mesh_count += 3
+                raw_faces.append(
+                    RawFace(0, raw_vert_start, len(face.verts), raw_mesh_start, raw_mesh_count,
+                            face.plane.normal))
+                face_count += 1
+            ent.pop("brushes")
+            ent["model"] = "*" + str(len(raw_models))
+            raw_models.append(RawModel(face_start, face_count))
+            continue
         if "brushes" in ent:
             face_start = len(raw_faces)
             face_count = 0
@@ -316,9 +899,7 @@ def main(args):
                     raw_brush_sides.append(RawBrushSide(plane_start + plane_count, plane.surface))
                     plane_count += 1
                 raw_brushes.append(RawBrush(content_flag, brush_side_start, brush_side_count))
-                temp = time.time()
                 vertices = brush.get_vertices()
-                int_time += time.time() - temp
                 for j in range(len(vertices)):
                     if brush.planes[j].texture_name == "__TB_empty" or brush.planes[j].surface & SURF_NODRAW:
                         continue
@@ -391,7 +972,6 @@ def main(args):
         "Brushes: %d" % (len(raw_brushes)),
         "Map parse time: %f s" % (parse_time),
         "Map generate time: %f s" % (generate_time),
-        "Gen: Find intersections: %f s" % (int_time),
         "Serialize+write time: %f s" % (write_time)
 
     ]

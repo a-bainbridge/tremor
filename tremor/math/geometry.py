@@ -1,6 +1,15 @@
+from enum import Enum
+
 import numpy as np
 
 from tremor.math.vertex_math import norm_vec3, magnitude_vec3
+
+
+class PlaneSide:
+    SIDE_FRONT = 0
+    SIDE_BACK = 1
+    SIDE_ON = 2
+    SIDE_CROSS = 3
 
 
 class Plane:
@@ -50,6 +59,37 @@ class Plane:
         ])
         x = np.linalg.solve(A, B)
         return x
+
+    def side(self, other):
+        if abs(self.normal.dot(other.normal)) < 0.0001:
+            # approximately same normal or opposite normal
+            if self.d() > other.d():
+                return PlaneSide.SIDE_BACK
+            if self.d() < other.d():
+                return PlaneSide.SIDE_FRONT
+            if abs(self.d() - other.d()) < 0.0001:
+                return PlaneSide.SIDE_ON
+        return PlaneSide.SIDE_CROSS
+
+    def is_axial(self):
+        return (self.normal[0] == 1 or self.normal[0] == -1) or (self.normal[1] == 1 or self.normal[1] == -1) or (
+                    self.normal[2] == 1 or self.normal[2] == -1)
+
+    def __eq__(self, other):
+        return self.normal[0] == other.normal[0] and self.normal[1] == other.normal[1] and self.normal[2] == other.normal[2] and self.normal.dot(self.point) == other.normal.dot(other.point)
+
+    @staticmethod
+    def plane_from_abcd(abcd):
+        normal = np.array(abcd[0:3])
+        d = abcd[3]
+        point = d * normal
+        return Plane(point, normal)
+
+    def d(self):
+        return -self.normal.dot(self.point)
+
+    def new_reversed(self):
+        return Plane(self.point, -self.normal)
 
 
 class AABB:
