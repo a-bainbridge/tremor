@@ -344,7 +344,8 @@ class MeshProgram:
 
     def refresh_all_global_uniforms(self):
         for g in get_queue():
-            u = self.uniforms[g]
+            rn = Uniform.get_root_name(g)
+            u = self.uniforms[rn].expanded.expanded(g)
             if u.is_global():
                 if u.u_type.is_simple_primitive():
                     self._refresh(u)

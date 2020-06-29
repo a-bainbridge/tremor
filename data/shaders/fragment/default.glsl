@@ -36,7 +36,7 @@ layout(std140) uniform Globals {
 };
 const int maxLights = 128;
 uniform Light[maxLights] lights;
-const vec3 ambient = vec3(0.7);
+const vec3 ambient = vec3(0.3);
 
 const vec3 look = vec3(0., 0., 1.);
 //const vec3 light_col = vec3(1.);

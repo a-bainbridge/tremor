@@ -143,7 +143,7 @@ def draw_scene(scene):
         'lights[0]',
         position=light_pos,
         color=[1, 0, 1],
-        intensity=1.0
+        intensity=10.0
     )
 
     update_global_uniform('lights[1].position', swizzled)

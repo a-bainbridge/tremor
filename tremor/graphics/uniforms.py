@@ -98,10 +98,8 @@ def add_uniform_to_all_programs(unif: 'Uniform'):
 
 
 def get_global_uniform_leaf(leaf_name: str) -> 'Uniform':
-    expr = ree.compile('(\w+)(.+)?')
-    match = expr.match(leaf_name).groups()
-    root_name = match[0]
-    if match[1] is not None:
+    root_name = Uniform.get_root_name(leaf_name)
+    if not Uniform.is_root_name(leaf_name):
         return GLOBAL_UNIFORMS[root_name].expanded(leaf_name)
     else:
         return GLOBAL_UNIFORMS[root_name].uniform
@@ -109,6 +107,7 @@ def get_global_uniform_leaf(leaf_name: str) -> 'Uniform':
 
 def update_global_uniform(name: str, value):
     get_global_uniform_leaf(name).smart_set_value(value)
+    add_to_queue(name)
 
 
 def update_global_uniform_struct(name: str, **values):
@@ -128,6 +127,9 @@ def flush_queue():
 
 def get_queue():
     return GLOBAL_UNIFORM_UPDATE_QUEUE
+
+def add_to_queue (leaf_name):
+    GLOBAL_UNIFORM_UPDATE_QUEUE.append(leaf_name)
 
 
 def BAD_update_all_uniform(name: str, values: list):
@@ -174,6 +176,16 @@ class Uniform:
     @staticmethod
     def as_struct(name: str, u_type: 'ShaderStructDef') -> 'Uniform':
         return Uniform(name, None, [], u_type)
+
+    _root_name_expr = ree.compile('(\w+)(.+)?')
+    @staticmethod
+    def get_root_name (leaf_name: str) -> str:
+        match = Uniform._root_name_expr.match(leaf_name).groups()
+        return match[0]
+
+    @staticmethod
+    def is_root_name (leaf_name: str) -> str:
+        return Uniform._root_name_expr.match(leaf_name).groups()[1] is None
 
     def __init__(self, name: str, loc, values: list, u_type: 'ShaderStructDef', local_name='', is_global=False):
 
