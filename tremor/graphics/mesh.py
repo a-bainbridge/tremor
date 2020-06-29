@@ -78,7 +78,8 @@ class Mesh:
             else:
                 drawcalls[tex] = ([(face.meshvertstart * 4)], [face.meshvertcount], [1])
         for tex, call in drawcalls.items():
-            tex.bind()
+            tex.active() # don't care
+            tex.bind(GL.GL_TEXTURE_2D)
             GL.glMultiDrawElements(GL.GL_TRIANGLES,
                                    call[1],
                                    GL.GL_UNSIGNED_INT,

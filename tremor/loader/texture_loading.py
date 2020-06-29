@@ -5,13 +5,16 @@ import PIL
 import numpy as np
 from OpenGL import GL
 from PIL import Image
+import deprecated
 
+from tremor.graphics.opengl_primitives import get_default_sampler
+from tremor.graphics.surfaces import TextureUnit
 from tremor.graphics.uniforms import gl_compressed_format
 
 
 class Texture:
     index = 0
-
+    @deprecated.deprecated
     def __init__(self, data: np.ndarray, name: str, width: int = 1, height: int = 1, min_filter=GL.GL_LINEAR,
                  mag_filter=GL.GL_LINEAR,
                  clamp_mode=GL.GL_REPEAT, img_format=GL.GL_RGBA):
@@ -61,7 +64,7 @@ class Texture:
 
 
 TEXTURES: Dict[str, Texture] = {}
-TEXTURE_TABLE: Dict[int, Texture] = {}
+TEXTURE_TABLE: Dict[int, TextureUnit] = {}
 # https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
 acceptable_file_types = ['bmp', 'png', 'jpg', 'jpeg', 'ppm']
 
@@ -93,18 +96,29 @@ def load_texture_by_name(name, idx):
     load_texture("./data/textures/defaults/missing.png", name.split("/")[0], {}, idx)
 
 
-def load_texture(filepath, name: str = None, config: dict = {}, idx=-1):
+def load_texture(filepath, name: str = None, config=None, idx=-1):
+    if config is None:
+        config = {}
     if name is None: name = filepath
     data = get_image_data(filepath)
     width = len(data[0])
     height = len(data)
     if idx != -1:
-        TEXTURE_TABLE[idx] = Texture(data.flatten(), name, width, height, **config)
+        TEXTURE_TABLE[idx] = TextureUnit.generate_texture()
+        # Texture(data.flatten(), name, width, height, **config)
+        img_format = config['format'] if 'format' in config else GL.GL_RGBA # todo: uh
+        samp = get_default_sampler()
+        samp.wrapS = GL.GL_REPEAT
+        samp.wrapT = GL.GL_REPEAT
+        TEXTURE_TABLE[idx].setup_texture2D(data.flatten(), width, height, img_format, samp)
     else:
+        print('TEXTURE CLASS DEPRECATED')
         TEXTURES[name] = Texture(data.flatten(), name, width, height, **config)
 
 
-def load_all_textures(path='./data/textures', config: dict = {}):
+def load_all_textures(path='./data/textures', config=None):
+    if config is None:
+        config = {}
     files = os.listdir(path)
     for f in files:
         try:
@@ -118,6 +132,7 @@ def load_all_textures(path='./data/textures', config: dict = {}):
         load_texture('%s/%s' % (path, f), filename, config[filename] if filename in config else {})
 
 
+@deprecated.deprecated
 def get_texture(name: str) -> Texture:
     if not name in TEXTURES.keys():
         raise Exception('%s not in TEXTURES' % name)

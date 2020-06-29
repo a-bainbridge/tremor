@@ -22,9 +22,6 @@ uniform sampler2D texNormal;//mat
 uniform sampler2D texMetallic;//mat
 #endif
 
-//globals
-//uniform float time;
-
 struct Light {
     vec3 position;
     vec3 color;
@@ -36,11 +33,9 @@ layout(std140) uniform Globals {
 };
 const int maxLights = 128;
 uniform Light[maxLights] lights;
-const vec3 ambient = vec3(0.3);
+const vec3 ambient = vec3(0.7);
 
 const vec3 look = vec3(0., 0., 1.);
-//const vec3 light_col = vec3(1.);
-//const float light_strength = 1.0;
 
 //rotate vector
 vec3 qrot(vec4 q, vec3 v) {
@@ -63,6 +58,9 @@ vec3 map_direction (vec3 normal, vec3 p_normal, vec3 new_normal) {
 float alpha_depth_func (float x) {
 //    return min(1., 1.4 * pow(max(d,0.), 1./6.));
     return 1. + min(x-0.2, 0.0) * 5.;
+}
+float distance_intensity_function (float dist, float radius) {
+    return min(1., 1./(dist * dist - radius));
 }
 void main()
 {
@@ -100,6 +98,7 @@ void main()
     for (int i = 0; i<numLights; i++) {
         Light light = lights[i];
         vec3 light_dir = normalize(light.position - fposition);
+        //float dist = length(light.position - fposition); // todo: use this when we have proper lighting systems
         float diffuse = max(dot(light_dir, normal), 0.);
         float specular = pow(max(dot(look, -reflect(normal, light_dir)), 0.), 16.);
         col += (diffuse * diffuse_weight + specular * specular_weight) * light.color * light.intensity;
