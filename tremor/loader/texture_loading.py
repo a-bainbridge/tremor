@@ -9,61 +9,9 @@ import deprecated
 
 from tremor.graphics.opengl_primitives import get_default_sampler
 from tremor.graphics.surfaces import TextureUnit
-from tremor.graphics.uniforms import gl_compressed_format
 
 
-class Texture:
-    index = 0
-    @deprecated.deprecated
-    def __init__(self, data: np.ndarray, name: str, width: int = 1, height: int = 1, min_filter=GL.GL_LINEAR,
-                 mag_filter=GL.GL_LINEAR,
-                 clamp_mode=GL.GL_REPEAT, img_format=GL.GL_RGBA):
-        self.data = data
-        self.width = width if width > 0 else len(self.data[0])
-        self.height = height if height > 0 else len(self.data)
-        self.name = name
-        self.index = Texture.index
-        self.min_filter = min_filter
-        self.mag_filter = mag_filter
-        self.clamp_mode = clamp_mode
-        self.format = img_format
-        self.texture = None
-        self.init()
-        Texture.index += 1  # increment for other textures
-
-    def set_texture(self):
-        # https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml
-        GL.glTexImage2D(
-            GL.GL_TEXTURE_2D,  # target
-            0,  # level
-            gl_compressed_format[self.format],  # internalformat
-            self.width,  # width
-            self.height,  # height
-            0,  # border
-            self.format,  # format
-            GL.GL_UNSIGNED_BYTE,  # type
-            self.data,  # pixels
-        )
-
-        GL.glGenerateMipmap(GL.GL_TEXTURE_2D)
-
-        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, self.mag_filter)
-        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, self.min_filter)
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, self.clamp_mode)  # u
-        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, self.clamp_mode)  # v
-
-    def bind(self):
-        GL.glActiveTexture(GL.GL_TEXTURE0)
-        GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-
-    def init(self):
-        self.texture = GL.glGenTextures(1)
-        self.bind()
-        # GL.glPixelStorei( GL.GL_UNPACK_ALIGNMENT, 1)
-        self.set_texture()
-
-
-TEXTURES: Dict[str, Texture] = {}
+TEXTURES: Dict[str, TextureUnit] = {}
 TEXTURE_TABLE: Dict[int, TextureUnit] = {}
 # https://pillow.readthedocs.io/en/stable/handbook/image-file-formats.html
 acceptable_file_types = ['bmp', 'png', 'jpg', 'jpeg', 'ppm']
@@ -105,15 +53,18 @@ def load_texture(filepath, name: str = None, config=None, idx=-1):
     height = len(data)
     if idx != -1:
         TEXTURE_TABLE[idx] = TextureUnit.generate_texture()
-        # Texture(data.flatten(), name, width, height, **config)
         img_format = config['format'] if 'format' in config else GL.GL_RGBA # todo: uh
         samp = get_default_sampler()
         samp.wrapS = GL.GL_REPEAT
         samp.wrapT = GL.GL_REPEAT
         TEXTURE_TABLE[idx].setup_texture2D(data.flatten(), width, height, img_format, samp)
     else:
-        print('TEXTURE CLASS DEPRECATED')
-        TEXTURES[name] = Texture(data.flatten(), name, width, height, **config)
+        TEXTURES[name] = TextureUnit.generate_texture()
+        img_format = config['format'] if 'format' in config else GL.GL_RGBA
+        samp = get_default_sampler()
+        samp.wrapS = GL.GL_REPEAT
+        samp.wrapT = GL.GL_REPEAT
+        TEXTURE_TABLE[idx].setup_texture2D(data.flatten(), width, height, img_format, samp)
 
 
 def load_all_textures(path='./data/textures', config=None):
@@ -131,9 +82,7 @@ def load_all_textures(path='./data/textures', config=None):
         print('loaded texture %s' % filename)
         load_texture('%s/%s' % (path, f), filename, config[filename] if filename in config else {})
 
-
-@deprecated.deprecated
-def get_texture(name: str) -> Texture:
+def get_texture(name: str) -> TextureUnit:
     if not name in TEXTURES.keys():
         raise Exception('%s not in TEXTURES' % name)
     return TEXTURES[name]
