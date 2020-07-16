@@ -219,8 +219,8 @@ def load_gltf(filepath) -> Mesh:
             byte_size = np.array([1], dtype=accessor_dtype(acc.componentType)).itemsize
             byte_stride = vec * byte_size
 
-        buff.optional_binder()(
-            GL.GL_ARRAY_BUFFER)  # if not bound already, bind with that target (that target is correct for all these attributes)
+        # if not bound already, bind with that target (that target is correct for all these attributes)
+        buff.optional_binder()(GL.GL_ARRAY_BUFFER)
         if location == -1:
             continue
         GL.glEnableVertexAttribArray(location)

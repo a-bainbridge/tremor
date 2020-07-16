@@ -4,6 +4,7 @@ from tremor import client_main
 from tremor.core import console
 from tremor.graphics import graphics_subsystem
 from tremor.input import key_input
+import OpenGL.GL as gl
 
 inputs = {'mouse': [0, 0]}
 
@@ -14,6 +15,10 @@ def init():
 
     def mouseclick_callback(window, button, action, modifiers):
         print('fps: %s'%client_main.debug_fps)
+
+        # to test gpu -> cpu texture thing
+        # if len(list(graphics_subsystem.TEXTURE_TABLE.values()))>0:
+        #     list(graphics_subsystem.TEXTURE_TABLE.values())[0].get_data(gl.GL_TEXTURE_2D)
 
     def scroll_callback(window, x, y):
         imgui_renderer.scroll_callback(window, x, y)

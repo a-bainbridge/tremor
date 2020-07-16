@@ -1,8 +1,34 @@
+from io import BytesIO
 from typing import Dict, List
 
 import OpenGL.GL as gl
+from PIL import Image as PIL_Image
 import pygltflib
+import numpy as np
 
+class TextureType:
+    def __init__ (self, target:gl.GLenum):
+        self.target = target
+
+    def size(self) -> int:
+        pass
+    def dimensions (self) -> tuple:
+        pass
+
+class Texture2D(TextureType):
+    def __init__(self, width:int, height:int, img_format:gl.GLenum, sampler: pygltflib.Sampler, dtype):
+        TextureType.__init__(self, gl.GL_TEXTURE_2D)
+        self.width = width
+        self.height = height
+        self.img_format = img_format
+        self.sampler = sampler
+        self.dtype = dtype
+
+    def size (self):
+        return self.width * self.height * 4 # todo: rgba or not???
+
+    def dimensions(self) -> tuple:
+        return self.width, self.height
 
 class TextureUnit:
     # setup:
@@ -24,6 +50,7 @@ class TextureUnit:
     def __init__(self, handle):
         self.handle = handle
         self.active_location = 0
+        self.texture_data:Dict[gl.GLenum, TextureType] = {}
 
     def active (self):
         gl.glActiveTexture(gl.GL_TEXTURE0 + self.active_location)
@@ -34,6 +61,8 @@ class TextureUnit:
     def setup_texture2D(self, data, width, height, img_format, sampler: pygltflib.Sampler, type=gl.GL_UNSIGNED_BYTE):
         self.active()
         self.bind(gl.GL_TEXTURE_2D)
+
+        self.texture_data[gl.GL_TEXTURE_2D] = Texture2D(width, height, img_format, sampler, type)
 
         gl.glTexImage2D(
             gl.GL_TEXTURE_2D,
@@ -52,6 +81,20 @@ class TextureUnit:
         gl.glTexParameterf(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, sampler.minFilter)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, sampler.wrapS)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, sampler.wrapT)
+
+    def get_data (self, target):
+        if target == gl.GL_TEXTURE_2D:
+            self.active()
+            self.bind(target)
+            metadata = self.texture_data[target]
+            output = gl.glGetTexImage(target=target, level=0, format=gl.GL_RGBA, type=gl.GL_UNSIGNED_BYTE) # outputType set to bytes default
+            #https://pillow.readthedocs.io/en/stable/handbook/concepts.html?highlight=modes#modes
+            img:PIL_Image.Image = PIL_Image.frombytes('RGBA', metadata.dimensions(), output)
+            # img.show()
+            data = np.array(img)
+            return data
+        else:
+            raise Exception(f"Don't know what to do with target '{target}' in TextureUnit.get_data")
 
 
 class Material:

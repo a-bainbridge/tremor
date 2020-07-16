@@ -6,6 +6,7 @@ from typing import List
 from OpenGL.GL.shaders import ShaderCompilationError
 
 from tremor.graphics.surfaces import Material
+from tremor.loader.texture_loading import TEXTURES, TEXTURE_TABLE
 from tremor.graphics.uniforms import *
 
 PROGRAMS: Dict[str, 'MeshProgram'] = {}
